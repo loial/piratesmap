@@ -1,0 +1,16 @@
+{
+  "name": "piratesmap",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "local": "node index.js"
+  },
+  "author": "Herman Sletteng",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "leaflet": "^1.9.4",
+    "leaflet-search": "^4.0.0"
+  }
+}

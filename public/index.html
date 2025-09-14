@@ -1,0 +1,291 @@
+<html>
+    <head>
+	<meta charset="UTF-8" />
+        <link rel="stylesheet" href="leaflet.css" />
+        <script src="leaflet.js"></script>
+        <link rel="stylesheet" href="leaflet-search.min.css" />
+        <script src="leaflet-search.min.js"></script>
+        <script src="cities.js"></script>
+        <style>
+            .my-div-icon {
+                width: 50px !important; /* Set the desired width */
+                height: 50px !important; /* Set the desired height (equal to width for a perfect circle) */
+                border-radius: 50%; /* Makes the element circular */
+                background-color: transparent; /* Makes the background fully transparent */
+                border: 2px solid #333; /* Optional: Add a border for visibility */
+            }
+        </style>
+        <style>
+            /* A little thing to separate the latlon-layer from the mutually exclusive ones 
+                currently works since it it the single last layer. Needs another solution
+                if we were to add more switchable layers to the layer control
+            */
+            .leaflet-control-layers-overlays label:last-child {
+                height: 0;
+                border-top: 1px solid #ddd;
+                margin: 10px -10px 20px 0px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id='map' style="height: 100vh; width: 100%; margin-top:5px;"></div>
+
+        <script>
+	        function getStyleSheetByFileName(fileName) {
+	          // Iterate through all stylesheets in the document
+	          for (const sheet of document.styleSheets) {
+	            // Check if the current stylesheet's title matches the provided name
+	            if (sheet.href && sheet.href.endsWith(fileName)) {
+	              return sheet; // Return the matching CSSStyleSheet object
+	            }
+	          }
+	          return null; // Return null if no stylesheet with the given name is found
+	        }
+            // A fix for leaflet-search finding the correct icons
+            let stylesheet=getStyleSheetByFileName("leaflet-search.min.css");
+	        for (let i = 0; i < stylesheet.cssRules.length; i++) { 
+	            if (stylesheet.cssRules[i].style.background && stylesheet.cssRules[i].style.background.startsWith('url')){
+	                let style=stylesheet.cssRules[i].style;
+	                style.background=style.background.replace('../images/','images/');
+	            }
+	        }
+
+            const officialMap = L.imageOverlay('pirates_official_map.jpg', [L.latLng(30.500, -96.836), L.latLng(13.350, -56.836)]);
+
+            /* 5120x3208 pixels, PxPerLong = 134.1, PxPerLat = 193.33, LeftLong = 96,744W, RightLong = 58,563, TopLat = 30,279N, BotLat = 13,687N */
+            const minLat = 30.279;
+            const minLon = -96.744;
+            const maxLat = 13.687;
+            const maxLon = -58.563;
+            const compiledMap = L.imageOverlay('map/PiratesMapFull.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            const baseMap = L.imageOverlay('map/PiratesMapBase.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+
+            const fullOverlay = L.imageOverlay('map/PiratesMapOverlayFull.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            const overlay1560 = L.imageOverlay('map/PiratesMapOverlay1560.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            const overlay1600 = L.imageOverlay('map/PiratesMapOverlay1600.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            const overlay1620 = L.imageOverlay('map/PiratesMapOverlay1620.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            const overlay1640 = L.imageOverlay('map/PiratesMapOverlay1640.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            const overlay1660 = L.imageOverlay('map/PiratesMapOverlay1660.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            const overlay1680 = L.imageOverlay('map/PiratesMapOverlay1680.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+
+            // Generate description popups for each city
+            function onEachFeature(feature, layer) {
+		        let popupContent = `<b>${feature.properties.name} - ${feature.properties.location}</b>`;
+                if (feature.properties.link) {
+                    popupContent += `<br/>See also: <a href="#" onClick="autopopup=true;searchControl.searchText('${feature.properties.link}');">${feature.properties.link}</a>`;
+                }
+                popupContent += `<p>${feature.properties.text}</p>`;
+                popupContent += `<p>(Eras: ${feature.properties.eras})</p>`;
+
+		        if (feature.properties && feature.properties.popupContent) {
+			        popupContent += feature.properties.popupContent;
+		        }
+
+		        layer.bindPopup(popupContent);
+	        }
+
+            // TODO: Separate by time period, so only relevant cities are clickable?
+            var citiesLayer = L.layerGroup();
+            L.geoJSON(cities, {
+                onEachFeature: onEachFeature,
+                pointToLayer(feature, latlng) {
+			        return L.circle(latlng, { // an invisible, but clickable element for each city
+			        	radius: 0.08,
+			        	fillColor: '#ffffff',
+			        	color: '#000',
+			        	weight: 1,
+			        	opacity: 0.01,
+			        	fillOpacity: 0.01
+			        });
+		        }
+            }).addTo(citiesLayer);
+
+            // Generate Latitude and Longitude lines
+            // TODO: Possible to make those nonclickable, but still have a tooltip?
+            var latLonLayer = L.layerGroup();
+            for (let lat=14; lat<=30; lat++) {
+                L.polyline([[lat,minLon],[lat,maxLon]], {weight: 2, opacity: 0.5}).bindTooltip("Latitude "+lat+"&deg;N", {
+                    sticky: true // Makes the tooltip follow the mouse cursor
+                }).addTo(latLonLayer);
+            }
+            for (let lon=60; lon<=96; lon+=2) {
+                L.polyline([[minLat,-lon],[maxLat,-lon]], {weight: 2, opacity: 0.5}).bindTooltip("Longitude "+lon+"&deg;W", {
+                    sticky: true // Makes the tooltip follow the mouse cursor
+                }).addTo(latLonLayer);
+            }
+
+            const map = L.map('map', {
+                crs: L.CRS.Simple,
+                minZoom: 5,
+                maxZoom: 10,
+                wheelPxPerZoomLevel: 20,
+                layers: [
+                    baseMap,
+                    fullOverlay,
+                    citiesLayer,
+                    latLonLayer
+                ]
+            });
+
+            var baseMaps = {
+                "Official Map": officialMap,
+                "Compiled Map (Full, static)": compiledMap,
+                "Compile Map (dynamic)": baseMap
+            };
+
+            var mutuallyExclusiveOverlays = {
+              "All cities (all time periods)": fullOverlay,
+              "1560 - The Silver Empire": overlay1560, 
+              "1600 - Merchants and Smugglers": overlay1600, 
+              "1620 - The New Colonists": overlay1620, 
+              "1640 - War for Profit": overlay1640, 
+              "1660 - The Buccaneer Heroes": overlay1660, 
+              "1680 - Pirates' Sunset": overlay1680,
+            }
+            var otherOverlays = {
+                //"Info (clickable)": citiesLayer, // guess this can always be active
+              "Lat/Long lines": latLonLayer
+            };
+
+            var overlayMaps = {
+                ...mutuallyExclusiveOverlays,
+                ...otherOverlays
+            };
+
+            // Since we want to disable the overlays when viewing the official map, these track the state to return to
+            var latlondefault=true
+            var overlaydefault=fullOverlay
+            const overlaySort=function sortFunction(layerA, layerB, nameA, nameB) {
+                // Sorting makes the "All" option on top, followed by the ones starting with years, and any other layers at the bottom
+                if (nameA.startsWith("All cities")) {return -1} 
+                if (nameB.startsWith("All cities")) {return 1} 
+                if (nameA < nameB) {
+                    return -1;
+                } else if (nameA > nameB) {
+                    return 1;
+                }
+                return 0
+            }
+            var layerControl = L.control.layers(baseMaps,overlayMaps,{
+                collapsed: false,
+                sortLayers: true,
+                sortFunction: overlaySort
+            }).addTo(map);
+
+            // Some logic to handle switching overlays on and off, and only having one city overlay at a time
+            function removeWithTimeout(layer) {
+              setTimeout(function() {
+                map.removeLayer(layer);
+              }, 10);
+            }
+
+            var ready=true 
+            map.on('overlayadd', function(event)
+            {
+                if (ready) {
+                    console.log( "Clicked on " + event.name, event )
+                    if (Object.keys(mutuallyExclusiveOverlays).includes(event.name)) {
+                        overlaydefault=event.layer
+                        for (o in mutuallyExclusiveOverlays) {
+                            if ( event.name != o && map.hasLayer(mutuallyExclusiveOverlays[o]) ) {
+                                console.log("remove layer '"+o+"'");
+                                removeWithTimeout(mutuallyExclusiveOverlays[o]);
+                            }
+                        }
+                    }
+                }
+            });          
+            var lastBaseLayer=undefined;
+            map.on('baselayerchange', function(event) {
+                // if lastBaseLayer is unset, this is the first loading...
+                if ( event.layer == officialMap ) {
+                    // if we're switching to official map, we need to make sure latlon is disabled
+                    latlondefault=map.hasLayer(latLonLayer) // store current value
+                    if (map.hasLayer(latLonLayer)) {
+                        console.log("removes latlong lines");
+                        removeWithTimeout(latLonLayer)
+                    }
+                    layerControl.removeLayer(latLonLayer);
+                }
+                if (lastBaseLayer==baseMap) {
+                    // switching away from baseMap with possible overlays
+                    lastOverlay=undefined;
+                    for (o in mutuallyExclusiveOverlays) {
+                        if (map.hasLayer(mutuallyExclusiveOverlays[o])) {
+                            lastOverlay=mutuallyExclusiveOverlays[o];
+                        }
+                        removeWithTimeout(mutuallyExclusiveOverlays[o]);
+                        layerControl.removeLayer(mutuallyExclusiveOverlays[o]);
+                    }
+                }
+                if (event.layer==baseMap && lastBaseLayer) {
+                    // switching to baseMap so add overlay options and possibly activate
+                    if (lastOverlay) {
+                            map.addLayer(lastOverlay);
+                    }
+                    for (o in mutuallyExclusiveOverlays) {
+                        layerControl.addOverlay(mutuallyExclusiveOverlays[o],o);
+                    }
+                }
+                if (lastBaseLayer==officialMap) {
+                    // switching away from officialMap means we can enable latlon layer again
+                    if(latlondefault) {
+                        map.addLayer(latLonLayer);
+                    }
+                    for (o in otherOverlays) {
+                        layerControl.addOverlay(otherOverlays[o],o);
+                    }
+                }
+                lastBaseLayer=event.layer
+            });
+
+            var autopopup=false; // if set, the buildtip will assume a direct search from link, and act on it
+            var searchControl = new L.Control.Search({
+                layer: citiesLayer, // The layer to search within
+                propertyName: 'name', // The property containing the label/name to search
+                marker: false, // Don't create a new marker on search result
+                initial: false,
+                firstTipSubmit: true,
+                moveToLocation: function(latlng, title, map) {
+                    map.setView(latlng, 8); // Zoom to the found location
+                },
+                buildTip: function(text,val) {
+                    // This is just so we can hijack the search function as a clickable action in city descriptions
+                    if (autopopup) {
+                        autopopup=false; // reset the autopopup
+                        //map.setView(val.layer._latlng, 8); // unnecessary as long as we're alrady accessing from the "twin" city
+                        val.layer.openPopup();
+                    }
+                    return '<a href="#">'+text+'</a>';
+                }
+            });
+
+	        searchControl.on('search:locationfound', function(e) {
+	            // Access the found location data
+	            var latlng = e.latlng;
+	            var title = e.title;
+	            var layer = e.layer;
+            
+	            // Perform actions with the found location data
+	            //console.log("Location found:", layer.feature.properties.name, latlng);
+            
+	            if (layer) {
+	                layer.openPopup();
+	            }
+	        });
+	        map.addControl(searchControl);
+
+           /*
+            map.on('click', function(e){
+              var coord = e.latlng;
+              var lat = coord.lat;
+              var lng = coord.lng;
+              console.log("You clicked the map at L.latLng(" + lat + ", " + lng + "), GeoJSON coordinates ["+lng+", "+lat +"]");
+            });
+            */
+            map.setView(L.latLng(14.65234375, -79.59375), 7);
+            document.getElementById('map').style.cursor = 'crosshair';
+      
+        </script>
+    </body>
+</html>
