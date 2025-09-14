@@ -239,10 +239,31 @@
                 lastBaseLayer=event.layer
             });
 
+            // make sure wi can write "Leogane" and still find "Léogâne"
+            const normalizeSearch = function (text, records) { // copied function from leaflet-search source
+                    const frecords = {}             
+                    text = text.replace(new RegExp('[.*+?^${}()|[\]\\]','g'), '')
+                    // sanitize remove all special characters               
+                    if (text === '') {
+                      return []
+                    }               
+                    const init = this.options.initial ? '^' : ''
+                    const icase = !this.options.casesensitive ? 'i' : undefined             
+                    const regSearch = new RegExp(init + text, icase)                
+                    for (const key in records) {
+                        // this part makes sure we normalize the key before comparing
+                      if (regSearch.test(key.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
+                        frecords[key] = records[key]
+                      }
+                    }               
+                    return frecords;
+            }
+
             var autopopup=false; // if set, the buildtip will assume a direct search from link, and act on it
             var searchControl = new L.Control.Search({
                 layer: citiesLayer, // The layer to search within
                 propertyName: 'name', // The property containing the label/name to search
+                filterData: normalizeSearch,
                 marker: false, // Don't create a new marker on search result
                 initial: false,
                 firstTipSubmit: true,
