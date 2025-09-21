@@ -6,6 +6,7 @@
         <link rel="stylesheet" href="leaflet-search.min.css" />
         <script src="leaflet-search.min.js"></script>
         <script src="leaflet.latlng-graticule.js"></script>
+        <script src="leaflet-smoothmarkerbouncing-bundle.min.js"></script>
         <script src="cities.js"></script>
         <style>
             .my-div-icon {
@@ -17,19 +18,105 @@
             }
         </style>
         <style>
-            /* A little thing to separate the latlon-layer from the mutually exclusive ones 
+            /* A little thing to separate the latlng-layer from the mutually exclusive ones 
                 currently works since it it the single last layer. Needs another solution
                 if we were to add more switchable layers to the layer control
-            */
-            .leaflet-control-layers-overlays label:last-child {
+            
+            .overlays .leaflet-control-layers-overlays label:last-child {
                 height: 0;
                 border-top: 1px solid #ddd;
                 margin: 10px -10px 20px 0px;
             }
+                */
+        </style>
+        <style>
+            .leaflet-control-markers-toggle {
+            	background-position: 50% 50%;
+            	background-repeat: no-repeat;
+            	display: block;
+            	}
+            .leaflet-control-markers {
+            	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            	background: #fff;
+            	border-radius: 5px;
+            	}
+            .leaflet-control-markers-toggle {
+            	background-image: url(images/marker-icon.png);
+            	width: 36px;
+            	height: 36px;
+            	}
+            .leaflet-retina .leaflet-control-markers-toggle {
+            	background-image: url(images/marker-icon-2x.png);
+            	background-size: 26px 26px;
+            	}
+            .leaflet-touch .leaflet-control-markers-toggle {
+            	width: 44px;
+            	height: 44px;
+            	}
+            .leaflet-control-markers .leaflet-control-markers-list,
+            .leaflet-control-markers-expanded .leaflet-control-markers-toggle {
+            	display: none;
+            	}
+            .leaflet-control-markers-expanded .leaflet-control-markers-list {
+            	display: block;
+            	position: relative;
+            	}
+            .leaflet-control-markers-expanded {
+            	padding: 6px 10px 6px 6px;
+            	color: #333;
+            	background: #fff;
+            	}
+            .leaflet-control-markers-scrollbar {
+            	overflow-y: scroll;
+            	overflow-x: hidden;
+            	padding-right: 5px;
+            	}
+            .leaflet-control-markers-selector {
+            	margin-top: 2px;
+            	position: relative;
+            	top: 1px;
+            	}
+            .leaflet-control-markers label {
+            	display: block;
+            	font-size: 13px;
+            	font-size: 1.08333em;
+            	}
+            .leaflet-control-markers-separator {
+            	height: 0;
+            	border-top: 1px solid #ddd;
+            	margin: 5px -10px 5px -6px;
+            	}
+            .leaflet-control-markers-header {
+                display: flow-root;
+            }
+            .leaflet-control-markers-header > div:first-child {
+                float: left;
+            }
+            .leaflet-control-markers-header > div:last-child {
+                float: right;
+            }
+            .leaflet-control-markers-addicon {
+                font-size: 22px;
+                float: right;
+                cursor: pointer;
+            }
+            .leaflet-control-markers-add-dialog {
+                display: none;
+            }
+            .leaflet-control-markers-add-dialog-info {
+                color: red;
+                font-size: smaller;
+            }
+            .deletemarker,
+            .leaflet-control-markers-store,
+            .leaflet-popup-content a {
+                cursor: pointer;
+            }
         </style>
     </head>
     <body>
-        <div id='map' style="height: 100vh; width: 100%; margin-top:5px;"></div>
+        <div id='map' style="height: 100vh; width: 90%; margin-top:5px; float: left;"></div>
+        <div id='markers-container' style="width: 10%; margin-top:5px; float: right"><ul id="markers-list"></ul></div>
 
         <script>
 	        function getStyleSheetByFileName(fileName) {
@@ -70,7 +157,7 @@
             const overlay1680 = L.imageOverlay('map/PiratesMapOverlay1680.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
 
             // Generate description popups for each city
-            function onEachFeature(feature, layer) {
+            function onEachCityFeature(feature, layer) {
 		        let popupContent = `<b>${feature.properties.name} - ${feature.properties.location}</b>`;
                 if (feature.properties.link) {
                     popupContent += `<br/>See also: <a href="#" onClick="autopopup=true;searchControl.searchText('${feature.properties.link}');">${feature.properties.link}</a>`;
@@ -88,7 +175,7 @@
             // TODO: Separate by time period, so only relevant cities are clickable?
             var citiesLayer = L.layerGroup();
             L.geoJSON(cities, {
-                onEachFeature: onEachFeature,
+                onEachFeature: onEachCityFeature,
                 pointToLayer(feature, latlng) {
 			        return L.circle(latlng, { // an invisible, but clickable element for each city
 			        	radius: 0.08,
@@ -101,7 +188,7 @@
 		        }
             }).addTo(citiesLayer);
 
-           var latLonLayer = L.latlngGraticule({
+           var latlngLayer = L.latlngGraticule({
                 showLabel: true,
                 dashArray: [1, 1],
                 zoomInterval: {
@@ -112,19 +199,6 @@
                         {start: 1, end: 10, interval: 2}
                     ]
                 }
-            });
-
-            const map = L.map('map', {
-                crs: L.CRS.Simple,
-                minZoom: 5,
-                maxZoom: 10,
-                wheelPxPerZoomLevel: 20,
-                layers: [
-                    baseMap,
-                    fullOverlay,
-                    citiesLayer,
-                    latLonLayer
-                ]
             });
 
             var baseMaps = {
@@ -144,16 +218,61 @@
             }
             var otherOverlays = {
                 //"Info (clickable)": citiesLayer, // guess this can always be active
-              "Lat/Long lines": latLonLayer
+              "Lat/Long lines": latlngLayer
             };
 
             var overlayMaps = {
                 ...mutuallyExclusiveOverlays,
-                ...otherOverlays
+                //...otherOverlays
             };
 
+            function getKeyByValue(object, value) {
+                return Object.keys(object).find(key => object[key] === value);
+            }
+
+            var storage = localStorage.getItem("storage");
+            if (storage) {storage=JSON.parse(storage)}
+            else { storage={ 
+                                baseLayer: getKeyByValue(baseMaps,baseMap), 
+                                defaultOverlay: getKeyByValue(mutuallyExclusiveOverlays,fullOverlay), 
+                                latlngOverlay: true, // latlngdefault,
+                                treasure: null, //{latlng:[lat,lon]} treasure._latlng,
+                                inca: null, //{latlng:[lat,lon]} inca._latlng,
+                                evil: null, //{ description: "", city: null, latlng: null },
+                                missionFrom: null, //{ from: null, to: null },
+                                missionTo: null, //{ from: null, to: null },
+                                fleet: null, //{ city: null, description: "", latlng: null },
+                                train: null //{ city: null, description: "", latlng: null }
+                            }
+            }
+
+            const map = L.map('map', {
+                crs: L.CRS.Simple,
+                minZoom: 5,
+                maxZoom: 10,
+                wheelPxPerZoomLevel: 20,
+                layers: [
+                    baseMaps[storage.baseLayer],
+                    //fullOverlay,
+                    citiesLayer,
+                    //latLngLayer
+                ]
+            });
+
+            if (map.hasLayer(baseMap)) {
+                if (storage.defaultOverlay) {
+                    mutuallyExclusiveOverlays[storage.defaultOverlay].addTo(map)
+                }
+            }
+            if (!map.hasLayer(officialMap)) {
+                if (storage.latlngOverlay) {
+                    latlngLayer.addTo(map)
+                }
+            }
+
+
             // Since we want to disable the overlays when viewing the official map, these track the state to return to
-            var latlondefault=true
+            var latlngdefault=true
             var overlaydefault=fullOverlay
             const overlaySort=function sortFunction(layerA, layerB, nameA, nameB) {
                 // Sorting makes the "All" option on top, followed by the ones starting with years, and any other layers at the bottom
@@ -171,6 +290,8 @@
                 sortLayers: true,
                 sortFunction: overlaySort
             }).addTo(map);
+            layerControl._container.classList.add("overlays");
+            var otherOverlaysControl = L.control.layers(null,otherOverlays,{collapsed: false}).addTo(map);
 
             // Some logic to handle switching overlays on and off, and only having one city overlay at a time
             function removeWithTimeout(layer) {
@@ -183,9 +304,9 @@
             map.on('overlayadd', function(event)
             {
                 if (ready) {
-                    console.log( "Clicked on " + event.name, event )
                     if (Object.keys(mutuallyExclusiveOverlays).includes(event.name)) {
                         overlaydefault=event.layer
+                        storage.defaultOverlay=getKeyByValue(mutuallyExclusiveOverlays,event.layer);
                         for (o in mutuallyExclusiveOverlays) {
                             if ( event.name != o && map.hasLayer(mutuallyExclusiveOverlays[o]) ) {
                                 console.log("remove layer '"+o+"'");
@@ -194,18 +315,19 @@
                         }
                     }
                 }
+                storage.latlngOverlay=map.hasLayer(latlngLayer);
+                localStorage.setItem("storage",JSON.stringify(storage));
             });          
             var lastBaseLayer=undefined;
             map.on('baselayerchange', function(event) {
                 // if lastBaseLayer is unset, this is the first loading...
                 if ( event.layer == officialMap ) {
-                    // if we're switching to official map, we need to make sure latlon is disabled
-                    latlondefault=map.hasLayer(latLonLayer) // store current value
-                    if (map.hasLayer(latLonLayer)) {
-                        console.log("removes latlong lines");
-                        removeWithTimeout(latLonLayer)
+                    // if we're switching to official map, we need to make sure latlng is disabled
+                    storage.latLngLayer=map.hasLayer(latlngLayer) // store current value
+                    if (map.hasLayer(latlngLayer)) {
+                        removeWithTimeout(latlngLayer)
                     }
-                    layerControl.removeLayer(latLonLayer);
+                    map.removeControl(otherOverlaysControl); //map.removeLayer(latlngLayer);
                 }
                 if (lastBaseLayer==baseMap) {
                     // switching away from baseMap with possible overlays
@@ -217,6 +339,7 @@
                         removeWithTimeout(mutuallyExclusiveOverlays[o]);
                         layerControl.removeLayer(mutuallyExclusiveOverlays[o]);
                     }
+                    storage.defaultOverlay=getKeyByValue(mutuallyExclusiveOverlays,lastOverlay)
                 }
                 if (event.layer==baseMap && lastBaseLayer) {
                     // switching to baseMap so add overlay options and possibly activate
@@ -228,15 +351,20 @@
                     }
                 }
                 if (lastBaseLayer==officialMap) {
-                    // switching away from officialMap means we can enable latlon layer again
-                    if(latlondefault) {
-                        map.addLayer(latLonLayer);
+                    // switching away from officialMap means we can enable latlng layer again
+                    if(storage.latlngLayer) {
+                        map.addLayer(latlngLayer);
                     }
+                    otherOverlaysControl.addTo(map);
+/*
                     for (o in otherOverlays) {
                         layerControl.addOverlay(otherOverlays[o],o);
                     }
+*/
                 }
-                lastBaseLayer=event.layer
+                lastBaseLayer=event.layer;
+                storage.baseLayer=getKeyByValue(baseMaps,lastBaseLayer);
+                localStorage.setItem("storage",JSON.stringify(storage));
             });
 
             // make sure wi can write "Leogane" and still find "Léogâne"
@@ -294,10 +422,603 @@
 	                layer.openPopup();
 	            }
 	        });
+
+            function cityLatlng(city) {
+                const s=searchControl._recordsFromLayer()[city]
+                return [s.lat,s.lng]
+            }
 	        map.addControl(searchControl);
 
+            /*   MARKERS   */
 
-           /*
+            /* First enable handling of GeoJSON properties */
+            L.Layer.include({
+                getProps: function () {
+                    var feature = this.feature = this.feature || {}; // Initialize the feature, if missing.
+                    feature.type = 'Feature';
+                    feature.properties = feature.properties || {}; // Initialize the properties, if missing.
+                    return feature.properties;
+                },
+                setProps: function (props) {
+                    for(p in props){
+                        this.getProps()[p]=props[p];
+                    }
+                    return this;
+                }
+            });
+
+            /* Define some icons */
+            const treasureIcon = L.icon({
+                iconUrl: 'images/treasure-icon.png',
+                iconSize:     [50, 40], // size of the icon
+                iconAnchor:   [36, 28], // point of the icon which will correspond to marker's location
+                popupAnchor:  [-20, -28] // point from which the popup should open relative to the iconAnchor
+            });
+            const enemyIcon = L.icon({
+                iconUrl: 'images/enemy-icon.png',
+                iconSize:     [42, 44], // size of the icon
+                iconAnchor:   [13, 42], // point of the icon which will correspond to marker's location
+                popupAnchor:  [0, -42] // point from which the popup should open relative to the iconAnchor
+            });
+            const familyIcon = L.icon({
+                iconUrl: 'images/family-icon.png',
+                iconSize:     [42, 50], // size of the icon
+                iconAnchor:   [21, 25], // point of the icon which will correspond to marker's location
+                popupAnchor:  [0, -25] // point from which the popup should open relative to the iconAnchor
+            });
+            var missionFromIcon = L.icon({
+                iconUrl: 'images/missionfrom-icon.png',
+                iconSize:     [48, 48], // size of the icon
+                iconAnchor:   [24, 24], // point of the icon which will correspond to marker's location
+                popupAnchor:  [0, -24] // point from which the popup should open relative to the iconAnchor
+            });
+            var missionToIcon = L.icon({
+                iconUrl: 'images/missionto-icon.png',
+                iconSize:     [48, 48], // size of the icon
+                iconAnchor:   [24, 24], // point of the icon which will correspond to marker's location
+                popupAnchor:  [0, -24] // point from which the popup should open relative to the iconAnchor
+            });
+            var fleetIcon = L.icon({
+                iconUrl: 'images/fleet-icon.png',
+                iconSize:     [63, 40], // size of the icon
+                iconAnchor:   [30, 38], // point of the icon which will correspond to marker's location
+                popupAnchor:  [0, -38] // point from which the popup should open relative to the iconAnchor
+            });
+            var trainIcon = L.icon({
+                iconUrl: 'images/train-icon.png',
+                iconSize:     [32, 68], // size of the icon
+                iconAnchor:   [16, 65], // point of the icon which will correspond to marker's location
+                popupAnchor:  [0, -50] // point from which the popup should open relative to the iconAnchor
+            });
+
+            const storeMarkers=function() {
+                let json=JSON.stringify(markerGroup.toGeoJSON());
+                localStoreage.setItem("markers",json)
+            }
+            var storedMarkers=localStorage.getItem("markers");
+
+            // Generate description popups for each marker
+            function onEachMarkerFeature(feature, layer) {
+                let popupContent="";
+                switch (feature.properties.type) {
+                    case "treasure":
+                        popupContent = `<b>Pirate Treasure</b>`;
+                        break;
+                    case "inca":
+                        popupContent = `<b>Inca Treasure</b>`;
+                        break;
+                    case "family":
+                        popupContent = `<b>Long lost ${feature.properties.description}</b>`;
+                        break;
+                    case "evil":
+                        popupContent = `<b>${feature.properties.description}</b>`;
+                        break;
+                    case "fleet":
+                        popupContent = `<b>Treasure fleet</b>`;
+                        if (feature.properties.description) {
+                            popupContent+=`<p>${feature.properties.description}</p>`
+                        }
+                        break;
+                    case "train":
+                        popupContent = `<b>Silver train</b>`;
+                        if (feature.properties.description) {
+                            popupContent+=`<p>${feature.properties.description}</p>`
+                        }
+                        break;
+                    case "missionsource":
+                        popupContent = `<b>Mission start</b><p><a onClick="javascript:flyToMissionTarget(this);">Show target</a></p>`;
+                        break;
+                    case "missiontarget":
+                        popupContent = `<b>Mission target</b><p><a onClick="javascript:flyToMissionSource(this);">Show start</a></p>`;
+                        break;
+                    default:
+                        if (feature.properties.description) {
+                            popupContent=`<b>${feature.properties.description}</b>`
+                        }
+                }
+                popupContent+=`<p><a class="deletemarker">Delete this marker</a></p>`;
+                let popup=L.popup({content: popupContent});
+                popup.marker=layer;
+		        layer.bindPopup(popup);
+	        }
+            const flyToMissionTarget=function(e){
+                console.log(e);
+                map.flyTo(markerGroup.getLayers().filter(l=>{return l.getProps().type=="missiontarget"})[0].getLatLng())
+            }
+            const flyToMissionSource=function(e){
+                console.log(e);
+                map.flyTo(markerGroup.getLayers().filter(l=>{return l.getProps().type=="missionsource"})[0].getLatLng())
+            }
+            var markerGroup = L.geoJSON(null, {
+                onEachFeature: onEachMarkerFeature,
+                pointToLayer(feature, latlng) {
+                    switch (feature.properties.type) {
+                        case "treasure":
+                        case "inca":
+                            return L.marker(latlng,{icon: treasureIcon,draggable:true});
+                            break;
+                        case "family":
+                            return L.marker(latlng,{icon: familyIcon,draggable:true});
+                            break;
+                        case "evil":
+                            return L.marker(latlng,{icon: enemyIcon});
+                            break;
+                        case "fleet":
+                            return L.marker(latlng,{icon: fleetIcon});
+                            break;
+                        case "train":
+                            return L.marker(latlng,{icon: trainIcon});
+                            break;
+                        case "missionsource":
+                            return L.marker(latlng,{icon: missionFromIcon});
+                            break;
+                        case "missiontarget":
+                            return L.marker(latlng,{icon: missionToIcon});
+                            break;
+                        default:
+                            return L.marker(latlng);
+                    }
+		        }
+            });
+        
+            if(storedMarkers) { markerGroup.addData(JSON.parse(storedMarkers)).addTo(map); }
+
+            const addMarker=function(latlng,props) {
+                markerGroup.addData(L.marker(latlng).setProps(props).toGeoJSON())
+            }
+            markerGroup.on("popupopen",function(e){
+                let deleteLink=e.popup._container.getElementsByClassName("deletemarker")[0]
+                deleteLink.onclick=function(){
+                    markerGroup.removeLayer(this)
+                }.bind(e.popup.marker)
+            });
+
+            L.Control.Markers = L.Control.extend({
+                options: {
+        		// @option collapsed: Boolean = true
+        		// If `true`, the control will be collapsed into an icon and expanded on mouse hover, touch, or keyboard activation.
+        		collapsed: true,
+	        	position: 'topright'
+                },
+                initialize: function (markerGroup, options) {
+		            L.Util.setOptions(this, options);
+
+		            this._markerControlInputs = [];
+                    this._markerGroup=markerGroup;
+		            this._markers = [];
+		            this._handlingClick = false;
+		            this._preventClick = false;
+
+		            for (var i in markerGroup._layers) {
+			            this._addMarker(markerGroup._layers[i]);
+		            }
+	            },
+
+                onAdd: function (map) {
+            		this._initLayout();
+            		this._update();
+
+            		this._map = map;
+                    this._markerGroup.on("layeradd layerremove",this._onMarkerGroupChange, this);
+             		return this._container;
+	            },
+                addTo: function (map) {
+		            L.Control.prototype.addTo.call(this, map);
+		            // Trigger expand after Layers Control has been inserted into DOM so that is now has an actual height.
+		            return this._expandIfNotCollapsed();
+	            },
+                onRemove: function () {
+                    this._markerGroup.off("layeradd layerremove",this._onMarkerGroupChange, this);
+            	},
+
+            	// @method addOverlay(layer: Layer, name: String): this
+            	// Adds an overlay (checkbox entry) with the given name to the control.
+            	addMarker: function (id,name) {
+            		this._addMarker(id,name);
+            		return (this._map) ? this._update() : this;
+            	},
+
+            	// @method removeLayer(layer: Layer): this
+            	// Remove the given layer from the control.
+            	removeMarker: function (marker) {
+            		marker.off('add remove', this._onMarkerChange, this);
+                
+            		var obj = this._getMarker(L.Util.stamp(marker));
+            		if (obj) {
+            			this._markers.splice(this._markers.indexOf(obj), 1);
+            		}
+            		return (this._map) ? this._update() : this;
+            	},
+               
+                expand: function () {
+            		L.DomUtil.addClass(this._container, 'leaflet-control-markers-expanded');
+            		this._section.style.height = null;
+            		var acceptableHeight = this._map.getSize().y - (this._container.offsetTop + 50);
+            		if (acceptableHeight < this._section.clientHeight) {
+            			L.DomUtil.addClass(this._section, 'leaflet-control-markers-scrollbar');
+            			this._section.style.height = acceptableHeight + 'px';
+            		} else {
+            			L.DomUtil.removeClass(this._section, 'leaflet-control-markers-scrollbar');
+            		}
+            		//this._checkDisabledLayers();
+            		return this;
+            	},
+
+            	// @method collapse(): this
+            	// Collapse the control container if expanded.
+            	collapse: function () {
+            		L.DomUtil.removeClass(this._container, 'leaflet-control-markers-expanded');
+            		return this;
+            	},
+
+                storeMarkers: function() {
+                    let json=JSON.stringify(this._markerGroup.toGeoJSON());
+                    localStorage.setItem("markers",json)
+                },
+
+                _initLayout: function () {
+            		var className = 'leaflet-control-markers',
+            		    container = this._container = L.DomUtil.create('div', className),
+            		    collapsed = this.options.collapsed;
+
+            		// makes this work on IE touch devices by stopping it from firing a mouseout event when the touch is released
+            		container.setAttribute('aria-haspopup', true);
+
+            		L.DomEvent.disableClickPropagation(container);
+            		L.DomEvent.disableScrollPropagation(container);
+
+            		var section = this._section = L.DomUtil.create('section', className + '-list');
+
+            		if (collapsed) {
+            			this._map.on('click', this.collapse, this);
+                    
+            			L.DomEvent.on(container, {
+            				mouseenter: this._expandSafely,
+            				mouseleave: this.collapse
+            			}, this);
+            		}
+                
+            		var link = this._layersLink = L.DomUtil.create('a', className + '-toggle', container);
+            		link.href = '#';
+            		link.title = 'Markers';
+            		link.setAttribute('role', 'button');
+                
+            		L.DomEvent.on(link, {
+            			keydown: function (e) {
+            				if (e.keyCode === 13) {
+            					this._expandSafely();
+            				}
+            			},
+            			// Certain screen readers intercept the key event and instead send a click event
+            			click: function (e) {
+            				L.DomEvent.preventDefault(e);
+            				this._expandSafely();
+            			}
+            		}, this);
+                
+            		if (!collapsed) {
+            			this.expand();
+            		}
+                    var header=L.DomUtil.create('div', className+"-header",section);
+                    var title=L.DomUtil.create('div',null,header);
+                    var b=L.DomUtil.create('b',null,title);
+                    b.innerText="Markers";
+
+                    var add=L.DomUtil.create('div',null,header);
+                    var addIcon=L.DomUtil.create('span', className+"-addicon",add);
+                    addIcon.innerText='+';
+                    this._addDialog=L.DomUtil.create('div',className+"-add-dialog",add);
+                    var form=L.DomUtil.create('form',null,this._addDialog);
+                    var select=L.DomUtil.create('select',null,form);
+                    ["treasure","inca","evil","family","fleet","train","missionsource","missiontarget","informant"].forEach(type=>{
+                        let option=L.DomUtil.create('option',null,select);
+                        option.innerText=type;
+                    });
+                    var br=L.DomUtil.create('br',null,form);
+                    var input=L.DomUtil.create('input',null,form);
+                    input.type="text";
+                    br=L.DomUtil.create('br',null,form);
+                    var info=L.DomUtil.create('span',className+"-add-dialog-info",form);
+                    info.innerHTML="Click on map to create new marker<br/>(existing marker of same type will be removed)";
+
+                    this._addIconOnClick=function(){
+                        var addDialog=this._addDialog;
+                        var addIcon=addDialog.parentNode.getElementsByClassName("leaflet-control-markers-addicon")[0];
+                        if (addIcon.innerText=="+") {
+                            addDialog.style.display="unset";   
+                            addIcon.innerText="x";
+                            map.on("click",this._addOnMapClick,this);
+                        } else {
+                            map.off("click",this._addOnMapClick,this);
+                            addDialog.style.display=null;
+                            addIcon.innerText="+";
+                        }
+                    }.bind(this)
+                    this._addOnMapClick=function(e){
+                        var addDialog=this._addDialog;
+                        var addIcon=addDialog.parentNode.getElementsByClassName("leaflet-control-markers-addicon")[0];
+                        if (addIcon.innerText=="+") {
+                            map.off("click",this._addOnMapClick,this);
+                            return false;
+                        }
+                        var coord = e.latlng;
+                        var lat = coord.lat;
+                        var lng = coord.lng;
+                        var form=addDialog.getElementsByTagName("form")[0];
+                        var input=form.getElementsByTagName("select")[0];
+                        var type=input.value;
+                        if (type != "informant") {
+                            oldMarker=this._markerGroup.getLayers().filter(l=>{return l.getProps().type==type})[0];
+                            if (oldMarker) {
+                                this._markerGroup.removeLayer(oldMarker);
+                            }
+
+                        }
+                        var o = {
+                            "type": "Feature",
+                            "properties": {
+                                "type": type,
+                                },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [coord.lng, coord.lat] // [longitude, latitude]
+                            }
+                        };
+                        switch (type) {
+                            case "train":
+                            case "fleet":
+                            case "family":
+                            case "evil":
+                                input=form.getElementsByTagName("input")[0];
+                                o.properties["description"] = input.value;
+                        }
+                        markerGroup.addData(o);
+
+                        this._addIconOnClick.call(this); // let the original function clean up
+                    }
+                    addIcon.onclick=this._addIconOnClick.bind(this);
+                    //header.appendChild(title);
+                    
+            		this._markersList = L.DomUtil.create('div', className + '-markers', section);
+
+                    var separator=L.DomUtil.create('div', className + '-separator', section);
+                    var div=L.DomUtil.create('div', null, section);
+                    var a=L.DomUtil.create('a', className + "-store", div);
+                    a.innerText="Store in persistant storage";
+                    a.onclick=this.storeMarkers.bind(this);
+            		container.appendChild(section);
+            	},
+                _getMarker: function (id) {
+                    return this._markerGroup.getLayer(id);
+            	},
+                _addMarker: function (marker) {
+            		if (this._map) {
+            			marker.on('add remove', this._onMarkerChange, this);
+            		}
+                
+            		this._markers.push({
+            			marker: marker,
+            			id: L.Util.stamp(marker),
+                        type: marker.getProps().type
+            		});
+
+                    /*
+            		if (this.options.sortLayers) {
+            			this._layers.sort(Util.bind(function (a, b) {
+            				return this.options.sortFunction(a.layer, b.layer, a.name, b.name);
+            			}, this));
+            		}
+                
+            		if (this.options.autoZIndex && layer.setZIndex) {
+            			this._lastZIndex++;
+            			layer.setZIndex(this._lastZIndex);
+            		}
+                    */
+            		this._expandIfNotCollapsed();
+            	},
+                _update: function () {
+            		if (!this._container) { return this; }
+
+            		L.DomUtil.empty(this._markersList);
+
+            		this._markerControlInputs = [];
+            		var i, obj;
+
+                    for (l in this._markerGroup._layers){
+            		//for (i = 0; i < this._markersgroup._layers].length; i++) {
+            			obj = this._markerGroup._layers[l];
+            			this._addItem(obj);
+            		}                
+            		return this;
+            	},
+                _onMarkerChange: function (e) {
+            		if (!this._handlingClick) {
+            			this._update();
+            		}
+                
+            		var obj = this._getMarker(L.Util.stamp(e.target));
+                
+            		// @namespace Map
+            		// @section Layer events
+            		// @event baselayerchange: LayersControlEvent
+            		// Fired when the base layer is changed through the [layers control](#control-layers).
+            		// @event overlayadd: LayersControlEvent
+            		// Fired when an overlay is selected through the [layers control](#control-layers).
+            		// @event overlayremove: LayersControlEvent
+            		// Fired when an overlay is deselected through the [layers control](#control-layers).
+            		// @namespace Control.Layers
+            		var type = e.type === 'add' ? 'markeradd' : 'markerremove';
+                
+            		if (type) {
+            			this._map.fire(type, obj);
+            		}
+            	},
+                _onMarkerGroupChange: function (e) {
+            		if (!this._handlingClick) {
+            			this._update();
+            		}
+                
+            		var obj = this._getMarker(L.Util.stamp(e.target));
+                    var marker=e.layer;
+                
+            		// @namespace Map
+            		// @section Layer events
+            		// @event baselayerchange: LayersControlEvent
+            		// Fired when the base layer is changed through the [layers control](#control-layers).
+            		// @event overlayadd: LayersControlEvent
+            		// Fired when an overlay is selected through the [layers control](#control-layers).
+            		// @event overlayremove: LayersControlEvent
+            		// Fired when an overlay is deselected through the [layers control](#control-layers).
+            		// @namespace Control.Layers
+            		var type = e.type === 'add' ? 'markeradd' : 'markerremove';
+                
+            		if (type) {
+            			this._map.fire(type, obj);
+            		}
+            	},
+
+            	_addItem: function (obj) {
+            		var label = document.createElement('label'),
+            		    checked = this._map.hasLayer(obj),
+                        id=obj._leaflet_id,
+                        type=obj.getProps().type,
+            		    input;
+
+                    input = document.createElement('input');
+            		input.type = 'checkbox';
+            		input.className = 'leaflet-control-markers-selector';
+            		input.defaultChecked = checked;
+                    label.dataset.markerid=id
+            
+            		this._markerControlInputs.push(input);
+            		input.markerId = id;
+                    input.dataset.markerid=id
+                
+            		L.DomEvent.on(input, 'click', this._onInputClick, this);
+                
+            		var name = document.createElement('span');
+            		name.innerHTML = ' ' + type;
+                    name.dataset.markerid=id
+                    name.onclick=function(e){
+                        let s=e.target;
+                        let id=s.dataset.markerid;
+                        let marker=markerGroup.getLayer(id);
+                        if (map.hasLayer(marker)){
+                            console.log(marker);
+                            map.setView(marker._latlng);
+                            L.Marker.stopAllBouncingMarkers(true);
+                            marker.bounce(1);
+                            marker.openPopup();
+                        }
+/*
+                        switch (marker) {
+                            case missionFrom:
+                                console.log(storage.missionFrom);
+                                break;
+                            case missionTo:
+                                console.log(storage.missionTo);
+                                break;
+                        }
+*/
+                        return false; // label-click won't change checkbox
+                    }
+
+
+            		// Helps from preventing layer control flicker when checkboxes are disabled
+            		// https://github.com/Leaflet/Leaflet/issues/2771
+            		var holder = document.createElement('span');
+                
+            		label.appendChild(holder);
+            		holder.appendChild(input);
+            		holder.appendChild(name);
+                
+            		var container = this._markersList;
+            		container.appendChild(label);
+                
+            		//this._checkDisabledMarkers();
+            		return label;
+            	},
+                _onInputClick: function () {
+            		// expanding the control on mobile with a click can cause adding a marker - we don't want this
+            		if (this._preventClick) {
+            			return;
+            		}
+                
+            		var inputs = this._markerControlInputs,
+            		    input, marker,id;
+            		var addedMarkers = [],
+            		    removedMarkers = [];
+                
+            		this._handlingClick = true;
+                
+                    addedMarkers=inputs.filter(i=>{return i.checked==true}).map(i=>{return i.dataset.markerid});
+                    removedMarkers=inputs.filter(i=>{return i.checked==false}).map(i=>{return i.dataset.markerid});
+
+                    removedMarkers.forEach(id=>{
+                                            let marker=this._markerGroup._layers[id];
+                                            if (this._map.hasLayer(marker)) {
+                                                this._map.removeLayer(marker);
+                                            }
+                                        });
+                    addedMarkers.forEach(id=>{
+                                            let marker=this._markerGroup._layers[id];
+                                            if (!this._map.hasLayer(marker)) {
+                                                this._map.addLayer(marker);
+                                            }
+                                        });
+            		this._handlingClick = false;
+                
+            		this._refocusOnMap();
+            	},
+                _expandIfNotCollapsed: function () {
+            		if (this._map && !this.options.collapsed) {
+            			this.expand();
+            		}
+            		return this;
+            	},
+
+            	_expandSafely: function () {
+            		var section = this._section;
+            		this._preventClick = true;
+            		L.DomEvent.on(section, 'click', L.DomEvent.preventDefault);
+            		this.expand();
+            		var that = this;
+            		setTimeout(function () {
+            			L.DomEvent.off(section, 'click', L.DomEvent.preventDefault);
+            			that._preventClick = false;
+            		});
+            	}
+            });            
+            L.control.markers=function(markerGroup, opts) {
+                return new L.Control.Markers(markerGroup, opts);
+            }
+
+            var markerControl;
+            setTimeout(function() { // give the main map some time to finish initializing
+                markerControl=L.control.markers(markerGroup,{collapsed: false, position: "topright"}).addTo(map);
+              }, 10);
+
+            /*  
             map.on('click', function(e){
               var coord = e.latlng;
               var lat = coord.lat;
