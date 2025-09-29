@@ -195,6 +195,23 @@
 		        }
             }).addTo(citiesLayer);
 
+            function reorderCities(era){
+                // For a given era, reorders linked cities, so the current city is on top and clickable
+                let c={};
+                citiesLayer.getLayers()[0].eachLayer(e=>{
+                    c[e.getProps().name]=e;
+                });
+                cities.features.filter(e=>{return e.properties.link})
+                .filter(e=>{return e.properties.eras.includes(era)})
+                .forEach(e=>{
+                    let current=e.properties.name;
+                    let other=e.properties.link;
+                    let currentEl=c[current].getElement();
+                    let otherEl=c[other].getElement()
+                    currentEl.before(otherEl)
+                })
+            }
+
             var latlngLayer = L.latlngGraticule({
                 showLabel: true,
                 dashArray: [1, 1],
@@ -320,6 +337,10 @@
                                 removeWithTimeout(mutuallyExclusiveOverlays[o]);
                             }
                         }
+                    }
+                    let era=event.name.split(" ")[0]
+                    if (parseInt(era)){
+                        reorderCities(parseInt(era));
                     }
                     storage.latlngOverlay=map.hasLayer(latlngLayer);
                     localStorage.setItem("storage",JSON.stringify(storage));
