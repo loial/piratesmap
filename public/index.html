@@ -934,7 +934,7 @@
                         let marker=markerGroup.getLayer(id);
                         if (map.hasLayer(marker)){
                             console.log(marker);
-                            map.setView(marker._latlng);
+                            map.flyTo(marker._latlng);
                             L.Marker.stopAllBouncingMarkers(true);
                             marker.bounce(1);
                             marker.openPopup();
