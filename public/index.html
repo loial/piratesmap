@@ -195,7 +195,7 @@
 		        }
             }).addTo(citiesLayer);
 
-           var latlngLayer = L.latlngGraticule({
+            var latlngLayer = L.latlngGraticule({
                 showLabel: true,
                 dashArray: [1, 1],
                 zoomInterval: {
@@ -240,17 +240,17 @@
             var storage = localStorage.getItem("storage");
             if (storage) {storage=JSON.parse(storage)}
             else { storage={ 
-                                baseLayer: getKeyByValue(baseMaps,baseMap), 
-                                defaultOverlay: getKeyByValue(mutuallyExclusiveOverlays,fullOverlay), 
-                                latlngOverlay: true, // latlngdefault,
-                                treasure: null, //{latlng:[lat,lon]} treasure._latlng,
-                                inca: null, //{latlng:[lat,lon]} inca._latlng,
-                                evil: null, //{ description: "", city: null, latlng: null },
-                                missionFrom: null, //{ from: null, to: null },
-                                missionTo: null, //{ from: null, to: null },
-                                fleet: null, //{ city: null, description: "", latlng: null },
-                                train: null //{ city: null, description: "", latlng: null }
-                            }
+                    baseLayer: getKeyByValue(baseMaps,baseMap), 
+                    defaultOverlay: getKeyByValue(mutuallyExclusiveOverlays,fullOverlay), 
+                    latlngOverlay: true, // latlngdefault,
+                    treasure: null, //{latlng:[lat,lon]} treasure._latlng,
+                    inca: null, //{latlng:[lat,lon]} inca._latlng,
+                    evil: null, //{ description: "", city: null, latlng: null },
+                    missionFrom: null, //{ from: null, to: null },
+                    missionTo: null, //{ from: null, to: null },
+                    fleet: null, //{ city: null, description: "", latlng: null },
+                    train: null //{ city: null, description: "", latlng: null }
+                }
             }
 
             const map = L.map('map', {
@@ -374,7 +374,7 @@
                 localStorage.setItem("storage",JSON.stringify(storage));
             });
 
-            // make sure wi can write "Leogane" and still find "Léogâne"
+            // make sure we can write "Leogane" and still find "Léogâne"
             const normalizeSearch = function (text, records) { // copied function from leaflet-search source
                     const frecords = {}             
                     text = text.replace(new RegExp('[.*+?^${}()|[\]\\]','g'), '')
