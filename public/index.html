@@ -327,6 +327,7 @@
 
             });          
             var lastBaseLayer=undefined;
+            var lastOverlay=undefined;
             map.on('baselayerchange', function(event) {
                 // if lastBaseLayer is unset, this is the first loading...
                 if ( event.layer == officialMap ) {
@@ -366,11 +367,6 @@
                         map.addLayer(latlngLayer);
                     }
                     otherOverlaysControl.addTo(map);
-/*
-                    for (o in otherOverlays) {
-                        layerControl.addOverlay(otherOverlays[o],o);
-                    }
-*/
                 }
                 lastBaseLayer=event.layer;
                 storage.baseLayer=getKeyByValue(baseMaps,lastBaseLayer);
@@ -379,22 +375,22 @@
 
             // make sure we can write "Leogane" and still find "Léogâne"
             const normalizeSearch = function (text, records) { // copied function from leaflet-search source
-                    const frecords = {}             
-                    text = text.replace(new RegExp('[.*+?^${}()|[\]\\]','g'), '')
-                    // sanitize remove all special characters               
-                    if (text === '') {
-                      return []
-                    }               
-                    const init = this.options.initial ? '^' : ''
-                    const icase = !this.options.casesensitive ? 'i' : undefined             
-                    const regSearch = new RegExp(init + text, icase)                
-                    for (const key in records) {
-                        // this part makes sure we normalize the key before comparing
-                      if (regSearch.test(key.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
-                        frecords[key] = records[key]
-                      }
-                    }               
-                    return frecords;
+                const frecords = {}             
+                text = text.replace(new RegExp('[.*+?^${}()|[\]\\]','g'), '')
+                // sanitize remove all special characters               
+                if (text === '') {
+                  return []
+                }               
+                const init = this.options.initial ? '^' : ''
+                const icase = !this.options.casesensitive ? 'i' : undefined             
+                const regSearch = new RegExp(init + text, icase)                
+                for (const key in records) {
+                    // this part makes sure we normalize the key before comparing
+                  if (regSearch.test(key.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
+                    frecords[key] = records[key]
+                  }
+                }               
+                return frecords;
             }
 
             var autopopup=false; // if set, the buildtip will assume a direct search from link, and act on it
