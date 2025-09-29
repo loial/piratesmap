@@ -149,19 +149,32 @@
 
             /* 5120x3208 pixels, PxPerLong = 134.1, PxPerLat = 193.33, LeftLong = 96,744W, RightLong = 58,563, TopLat = 30,279N, BotLat = 13,687N */
             const minLat = 30.279;
-            const minLon = -96.744;
+            const minLng = -96.744;
             const maxLat = 13.687;
-            const maxLon = -58.563;
-            const compiledMap = L.imageOverlay('map/PiratesMapFull.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
-            const baseMap = L.imageOverlay('map/PiratesMapBase.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            const maxLng = -58.563;
+            const maxX=5120
+            const maxY=3208
+            const distLat=maxLat-minLat
+            const distLng=maxLng-minLng
+            const pxPerLat=maxY/distLat
+            const pxPerLng=maxX/distLng
 
-            const fullOverlay = L.imageOverlay('map/PiratesMapOverlayFull.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
-            const overlay1560 = L.imageOverlay('map/PiratesMapOverlay1560.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
-            const overlay1600 = L.imageOverlay('map/PiratesMapOverlay1600.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
-            const overlay1620 = L.imageOverlay('map/PiratesMapOverlay1620.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
-            const overlay1640 = L.imageOverlay('map/PiratesMapOverlay1640.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
-            const overlay1660 = L.imageOverlay('map/PiratesMapOverlay1660.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
-            const overlay1680 = L.imageOverlay('map/PiratesMapOverlay1680.png', [L.latLng(minLat, minLon), L.latLng(maxLat, maxLon)]);
+            L.CRS.PiratesCRS = L.extend({}, L.CRS.Simple, {
+                transformation: new L.Transformation(0.1*pxPerLng, 0, 0.1*pxPerLat, 0) // Example: scaling and y-axis inversion
+            });
+
+            const mapBounds=[L.latLng(minLat, minLng), L.latLng(maxLat, maxLng)];
+
+            const compiledMap = L.imageOverlay('map/PiratesMapFull.png', mapBounds);
+            const baseMap = L.imageOverlay('map/PiratesMapBase.png', mapBounds);
+
+            const fullOverlay = L.imageOverlay('map/PiratesMapOverlayFull.png', mapBounds);
+            const overlay1560 = L.imageOverlay('map/PiratesMapOverlay1560.png', mapBounds);
+            const overlay1600 = L.imageOverlay('map/PiratesMapOverlay1600.png', mapBounds);
+            const overlay1620 = L.imageOverlay('map/PiratesMapOverlay1620.png', mapBounds);
+            const overlay1640 = L.imageOverlay('map/PiratesMapOverlay1640.png', mapBounds);
+            const overlay1660 = L.imageOverlay('map/PiratesMapOverlay1660.png', mapBounds);
+            const overlay1680 = L.imageOverlay('map/PiratesMapOverlay1680.png', mapBounds);
 
             // Generate description popups for each city
             function onEachCityFeature(feature, layer) {
@@ -271,9 +284,9 @@
             }
 
             const map = L.map('map', {
-                crs: L.CRS.Simple,
-                minZoom: 5,
-                maxZoom: 10,
+                crs: L.CRS.PiratesCRS,
+                minZoom: 2,
+                maxZoom: 6,
                 wheelPxPerZoomLevel: 20,
                 layers: [
                     baseMaps[storage.baseLayer],
@@ -1056,7 +1069,7 @@
               console.log("You clicked the map at L.latLng(" + lat + ", " + lng + "), GeoJSON coordinates ["+lng+", "+lat +"]");
             });
             */
-            map.setView(L.latLng(14.65234375, -79.59375), 7);
+            map.setView(L.latLng(24, -78), 3);
             document.getElementById('map').style.cursor = 'crosshair';
       
         </script>
