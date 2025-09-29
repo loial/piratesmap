@@ -112,6 +112,14 @@
             .leaflet-popup-content a {
                 cursor: pointer;
             }
+            .leaflet-control-markers-store:active
+             {
+                cursor: progress;
+                filter: invert();
+            }
+            .cursor-add-shortcut{
+                cursor: alias;
+            }
         </style>
     </head>
     <body>
@@ -747,8 +755,10 @@
                             addDialog.style.display="unset";   
                             addIcon.innerText="x";
                             map.on("click",this._addOnMapClick,this);
+                            map.getPane("overlayPane").classList.add("cursor-add-shortcut");
                         } else {
                             map.off("click",this._addOnMapClick,this);
+                            map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
                             addDialog.style.display=null;
                             addIcon.innerText="+";
                         }
@@ -758,6 +768,7 @@
                         var addIcon=addDialog.parentNode.getElementsByClassName("leaflet-control-markers-addicon")[0];
                         if (addIcon.innerText=="+") {
                             map.off("click",this._addOnMapClick,this);
+                            map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
                             return false;
                         }
                         var coord = e.latlng;
