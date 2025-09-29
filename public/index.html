@@ -321,16 +321,19 @@
                             }
                         }
                     }
+                    storage.latlngOverlay=map.hasLayer(latlngLayer);
+                    localStorage.setItem("storage",JSON.stringify(storage));
                 }
-                storage.latlngOverlay=map.hasLayer(latlngLayer);
-                localStorage.setItem("storage",JSON.stringify(storage));
+
             });          
             var lastBaseLayer=undefined;
             map.on('baselayerchange', function(event) {
                 // if lastBaseLayer is unset, this is the first loading...
                 if ( event.layer == officialMap ) {
                     // if we're switching to official map, we need to make sure latlng is disabled
-                    storage.latLngLayer=map.hasLayer(latlngLayer) // store current value
+                    if (lastBaseLayer) {
+                        storage.latLngLayer=map.hasLayer(latlngLayer) // store current value
+                    }
                     if (map.hasLayer(latlngLayer)) {
                         removeWithTimeout(latlngLayer)
                     }
@@ -359,7 +362,7 @@
                 }
                 if (lastBaseLayer==officialMap) {
                     // switching away from officialMap means we can enable latlng layer again
-                    if(storage.latlngLayer) {
+                    if(storage.latLngLayer) {
                         map.addLayer(latlngLayer);
                     }
                     otherOverlaysControl.addTo(map);
