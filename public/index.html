@@ -575,6 +575,12 @@
                     case "missiontarget":
                         popupContent = `<b>Mission target</b><p><a onClick="javascript:flyToMissionSource(this);">Show start</a></p>`;
                         break;
+                    case "informant":
+                        popupContent = `<b>Informant</b>`;
+                        if (feature.properties.description) {
+                            popupContent=`<b>${feature.properties.description}</b>`
+                        }
+                            break;
                     default:
                         if (feature.properties.description) {
                             popupContent=`<b>${feature.properties.description}</b>`
