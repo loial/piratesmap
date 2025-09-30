@@ -123,7 +123,7 @@
         </style>
     </head>
     <body>
-        <div id='map' style="height: 100vh; width: 100%; margin-top:5px; float: left;"></div>
+        <div id='map' style="height: 98vh; width: 100%; margin-top:5px; float: left;"></div>
 
         <script>
 	        function getStyleSheetByFileName(fileName) {
@@ -1081,6 +1081,10 @@
             */
             map.setView(L.latLng(24, -78), 3);
             document.getElementById('map').style.cursor = 'crosshair';
+
+            map.attributionControl.addAttribution("Artwork from Sid Meier's Pirates! (1990 - Amiga)")
+            map.attributionControl.addAttribution("Official map and city information from game manual")
+            map.attributionControl.addAttribution("Compiled by Herman Sletteng")
       
         </script>
     </body>
