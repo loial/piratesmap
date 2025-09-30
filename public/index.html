@@ -95,6 +95,7 @@
             .leaflet-control-markers-header > div:last-child {
                 float: right;
             }
+            .leaflet-control-markers-analyzeicon,
             .leaflet-control-markers-addicon {
                 font-size: 22px;
                 float: right;
@@ -775,6 +776,18 @@
                     b.innerText="Markers";
 
                     var add=L.DomUtil.create('div',null,header);
+                    var analyze=L.DomUtil.create('span', className+"-analyzeicon",add);
+                    analyze.innerText="🗺️";
+                    analyze.onclick=function(){
+                        let analyzeScript=L.DomUtil.create("script");
+                        analyzeScript.setAttribute("type","text/javascript");
+                        analyzeScript.src="analyze.js";
+                        document.getElementsByTagName("script")[0].append(analyzeScript);
+                        analyzeScript.addEventListener('load', function() {
+                            this.onclick=dialog;
+                        }.bind(this));
+                    }.bind(analyze)
+
                     var addIcon=L.DomUtil.create('span', className+"-addicon",add);
                     addIcon.innerText='+';
                     this._addDialog=L.DomUtil.create('div',className+"-add-dialog",add);
