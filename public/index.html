@@ -179,21 +179,35 @@
             // Generate description popups for each city
             function onEachCityFeature(feature, layer) {
 		        let popupContent = `<b>${feature.properties.name} - ${feature.properties.location}</b>`;
+                citiesLayer.cities[feature.properties.name]=layer;
                 if (feature.properties.link) {
-                    popupContent += `<br/>See also: <a href="#" onClick="autopopup=true;searchControl.searchText('${feature.properties.link}');">${feature.properties.link}</a>`;
+                    popupContent += `<br/>See also: <a href="#" class="citylink" >${feature.properties.link}</a>`;
                 }
                 popupContent += `<p>${feature.properties.text}</p>`;
-                popupContent += `<p>(Eras: ${feature.properties.eras})</p>`;
+                if (feature.properties.eras.length==6) {
+                    popupContent += `<p>(Eras: All)</p>`;
+                } else {
+                    popupContent += `<p>(Eras: ${feature.properties.eras})</p>`;
+                }
 
 		        if (feature.properties && feature.properties.popupContent) {
 			        popupContent += feature.properties.popupContent;
 		        }
 
 		        layer.bindPopup(popupContent);
+                layer.on("popupopen",function (e){
+                    let linkclick=function(){
+                        citiesLayer.cities[this.toString()].openPopup();                        
+                    }
+                    if (this.getProps().link) {
+                        this.getPopup().getElement().getElementsByClassName("citylink")[0].onclick=linkclick.bind(this.getProps().link);  
+                    }
+                })
 	        }
 
             // TODO: Separate by time period, so only relevant cities are clickable?
             var citiesLayer = L.layerGroup();
+            citiesLayer.cities={};
             L.geoJSON(cities, {
                 onEachFeature: onEachCityFeature,
                 pointToLayer(feature, latlng) {
@@ -427,7 +441,6 @@
                 return frecords;
             }
 
-            var autopopup=false; // if set, the buildtip will assume a direct search from link, and act on it
             var searchControl = new L.Control.Search({
                 layer: citiesLayer, // The layer to search within
                 propertyName: 'name', // The property containing the label/name to search
@@ -436,16 +449,7 @@
                 initial: false,
                 firstTipSubmit: true,
                 moveToLocation: function(latlng, title, map) {
-                    map.setView(latlng, 8); // Zoom to the found location
-                },
-                buildTip: function(text,val) {
-                    // This is just so we can hijack the search function as a clickable action in city descriptions
-                    if (autopopup) {
-                        autopopup=false; // reset the autopopup
-                        //map.setView(val.layer._latlng, 8); // unnecessary as long as we're alrady accessing from the "twin" city
-                        val.layer.openPopup();
-                    }
-                    return '<a href="#">'+text+'</a>';
+                    map.flyTo(latlng, 5); // Zoom to the found location
                 }
             });
 
