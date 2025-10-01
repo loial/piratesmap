@@ -230,6 +230,16 @@
 		        }
             }).addTo(citiesLayer);
 
+            citiesLayer.hidePoints=function(bool) {
+                for (s of document.styleSheets) {
+                    for (r of s.rules) {
+                        if (r.selectorText=='.citypoint') {
+                            r.style.display=bool ? "none" : "";
+                        }
+                    }
+                }
+            }
+
             function reorderCities(era){
                 // For a given era, reorders linked cities, so the current city is on top and clickable
                 let c={};
@@ -818,9 +828,11 @@
                             addDialog.style.display="unset";   
                             addIcon.innerText="x";
                             map.on("click",this._addOnMapClick,this);
+                            citiesLayer.hidePoints(true);
                             map.getPane("overlayPane").classList.add("cursor-add-shortcut");
                         } else {
                             map.off("click",this._addOnMapClick,this);
+                            citiesLayer.hidePoints(false);
                             map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
                             addDialog.style.display=null;
                             addIcon.innerText="+";
@@ -831,6 +843,7 @@
                         var addIcon=addDialog.parentNode.getElementsByClassName("leaflet-control-markers-addicon")[0];
                         if (addIcon.innerText=="+") {
                             map.off("click",this._addOnMapClick,this);
+                            citiesLayer.hidePoints(false);
                             map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
                             return false;
                         }
