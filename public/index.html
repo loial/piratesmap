@@ -121,6 +121,12 @@
             .cursor-add-shortcut{
                 cursor: alias;
             }
+            .citypoint{
+                opacity:0;
+            }
+            .citypoint:hover {
+                opacity:1;
+            }
         </style>
     </head>
     <body>
@@ -213,12 +219,13 @@
                 onEachFeature: onEachCityFeature,
                 pointToLayer(feature, latlng) {
 			        return L.circle(latlng, { // an invisible, but clickable element for each city
-			        	radius: 0.08,
+			        	radius: 0.09,
 			        	fillColor: '#ffffff',
 			        	color: '#000',
 			        	weight: 1,
-			        	opacity: 0.01,
-			        	fillOpacity: 0.01
+			        	opacity: 0.2,
+			        	fillOpacity: 0.1,
+                        className:"citypoint"
 			        });
 		        }
             }).addTo(citiesLayer);
