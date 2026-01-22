@@ -130,9 +130,26 @@
         </style>
     </head>
     <body>
-        <div id='map' style="height: 98vh; width: 100%; margin-top:5px; float: left;"></div>
+        <noscript>
+            <b>NoScript version: Static, nonbrowsable image</b>
+            <br/>
+            Use a modern browser with JavaScript enabled for search and fancy features            
+            <br />
+            Click on image for full, zoomable view
+            <br />
+            <a target="_top" title="PiratesMapFull.png" alt="PiratesMapFull.png" href="map/PiratesMapFull.png"><img width="100%; object-fit: contain;"  src="map/PiratesMapFull.png" /></a>
+        </noscript>
+
 
         <script>
+            let mapDiv=L.DomUtil.create("div",null,document.body);
+            mapDiv.style.height="98vh";
+            mapDiv.style.width="100%";
+            mapDiv.style.marginTop="5px";
+            mapDiv.style.float="left";
+            mapDiv.id="map";
+            //<div id='map' style="height: 98vh; width: 100%; margin-top:5px; float: left;"></div>
+
 	        function getStyleSheetByFileName(fileName) {
 	          // Iterate through all stylesheets in the document
 	          for (const sheet of document.styleSheets) {
