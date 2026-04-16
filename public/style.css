@@ -138,6 +138,20 @@ body {
     display: none;
 }
 
+/* Leaflet-search icon overrides */
+.leaflet-control-search.search-load .search-input {
+    background-image: url(images/loader.gif);
+}
+.leaflet-control-search .search-cancel {
+    background-image: url(images/search-icon.png);
+}
+.leaflet-control-search .search-button {
+    background-image: url(images/search-icon.png);
+}
+.leaflet-control-search .search-button:hover {
+    background-image: url(images/search-icon.png);
+}
+
 /* Dialog Styles */
 #dlgAnalyze {
     border-radius: 8px;
