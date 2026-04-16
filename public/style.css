@@ -1,0 +1,160 @@
+/* PiratesMap Styles */
+
+body {
+    margin: 0;
+    padding: 0;
+}
+
+#map {
+    height: 98vh;
+    width: 100%;
+    margin-top: 5px;
+    float: left;
+}
+
+.my-div-icon {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 50%;
+    background-color: transparent;
+    border: 2px solid #333;
+}
+
+/* Leaflet Control Markers Styles */
+.leaflet-control-markers-toggle {
+    background-position: 50% 50%;
+    background-repeat: no-repeat;
+    display: block;
+}
+
+.leaflet-control-markers {
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    background: #fff;
+    border-radius: 5px;
+}
+
+.leaflet-control-markers-toggle {
+    background-image: url(images/marker-icon.png);
+    width: 36px;
+    height: 36px;
+}
+
+.leaflet-retina .leaflet-control-markers-toggle {
+    background-image: url(images/marker-icon-2x.png);
+    background-size: 26px 26px;
+}
+
+.leaflet-touch .leaflet-control-markers-toggle {
+    width: 44px;
+    height: 44px;
+}
+
+.leaflet-control-markers .leaflet-control-markers-list,
+.leaflet-control-markers-expanded .leaflet-control-markers-toggle {
+    display: none;
+}
+
+.leaflet-control-markers-expanded .leaflet-control-markers-list {
+    display: block;
+    position: relative;
+}
+
+.leaflet-control-markers-expanded {
+    padding: 6px 10px 6px 6px;
+    color: #333;
+    background: #fff;
+}
+
+.leaflet-control-markers-scrollbar {
+    overflow-y: scroll;
+    overflow-x: hidden;
+    padding-right: 5px;
+}
+
+.leaflet-control-markers-selector {
+    margin-top: 2px;
+    position: relative;
+    top: 1px;
+}
+
+.leaflet-control-markers label {
+    display: block;
+    font-size: 13px;
+    font-size: 1.08333em;
+}
+
+.leaflet-control-markers-separator {
+    height: 0;
+    border-top: 1px solid #ddd;
+    margin: 5px -10px 5px -6px;
+}
+
+.leaflet-control-markers-header {
+    display: flow-root;
+}
+
+.leaflet-control-markers-header > div:first-child {
+    float: left;
+}
+
+.leaflet-control-markers-header > div:last-child {
+    float: right;
+    cursor: pointer;
+}
+
+.leaflet-control-markers-add-dialog {
+    display: none;
+}
+
+.leaflet-control-markers-add-dialog-info {
+    color: red;
+    font-size: smaller;
+}
+
+.deletemarker,
+.leaflet-control-markers-store,
+.leaflet-popup-content a {
+    cursor: pointer;
+}
+
+.leaflet-control-markers-store:active {
+    cursor: progress;
+    filter: invert();
+}
+
+.cursor-add-shortcut {
+    cursor: alias;
+}
+
+.citypoint {
+    opacity: 0;
+}
+
+.citypoint:hover {
+    opacity: 1;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Dialog Styles */
+#dlgAnalyze {
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    padding: 20px;
+}
+
+#mapPiece {
+    display: block;
+    margin: 10px 0;
+    max-width: 100%;
+}
+
+#info {
+    display: block;
+    background: #f4f4f4;
+    padding: 10px;
+    margin: 10px 0;
+    white-space: pre-wrap;
+}
