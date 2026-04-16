@@ -1,56 +1,56 @@
 /**
  * Map piece analyzer using OpenCV.js
  * Identifies map fragments and translates them to world coordinates.
+ * Adapted from the original version in the main branch.
  */
-
-// Shared function to convert base map pixels to Lat/Lng
-function baseMapPixelToLatLng(x, y) {
-    // These constants should ideally be shared with map.js
-    const minLat = 30.279;
-    const minLng = -96.744;
-    const maxLat = 13.687;
-    const maxLng = -58.563;
-    const maxX = 5120;
-    const maxY = 3208;
-
-    const distLat = maxLat - minLat;
-    const distLng = maxLng - minLng;
-    const pxPerLat = maxY / distLat;
-    const pxPerLng = maxX / distLng;
-
-    const lng = x / pxPerLng + minLng;
-    const lat = y / pxPerLat + minLat;
-    return { lat, lng };
-}
 
 const dialog = () => {
     let dlg = document.getElementById('dlgAnalyze');
     if (!dlg) {
         dlg = L.DomUtil.create("dialog", null, document.body);
         dlg.id = "dlgAnalyze";
-        dlg.innerHTML = `
-            <h2>Map piece analyzer</h2>
-            <p>Load a screenshot of a map piece to add as marker</p>
-            <canvas id="mapPiece"></canvas>
-            <input id="fileInput" type="file" name="file" accept="image/*">
-            <button id="btnAnalyze">Analyze <img src="images/loader.gif" id="loader" class="hidden"></button>
-            <code id="info"></code>
-            <button id="closeModal">Close</button>
-        `;
-
-        const loader = dlg.querySelector("#loader");
-        loader.show = () => loader.classList.remove("hidden");
-        loader.hide = () => loader.classList.add("hidden");
-
-        dlg.querySelector("#btnAnalyze").addEventListener('click', analyze);
-        dlg.querySelector("#closeModal").addEventListener('click', () => dlg.close());
+        
+        L.DomUtil.create("h2", null, dlg).innerText = "Map piece analyzer";
+        let p = L.DomUtil.create("p", null, dlg);
+        p.innerText = "Load a screenshot of a map piece to add as marker";
+        
+        L.DomUtil.create("canvas", null, dlg).id = "mapPiece";
+        L.DomUtil.create("br", null, dlg);
+        
+        let i = L.DomUtil.create("input", null, dlg);
+        i.id = "fileInput";
+        i.type = "file";
+        i.name = "file";
+        i.accept = "image/*";
+        
+        let b1 = L.DomUtil.create("button", null, dlg);
+        b1.innerText = "Analyze";
+        b1.id = "btnAnalyze";
+        b1.addEventListener('click', () => { analyze(); });
+        
+        let loader = L.DomUtil.create("img", "hidden", b1);
+        loader.src = "images/loader.gif";
+        loader.id = "loader";
+        loader.show = () => { loader.classList.remove("hidden") };
+        loader.hide = () => { loader.classList.add("hidden") };
+        
+        L.DomUtil.create("br", null, dlg);
+        let info = L.DomUtil.create("code", null, dlg);
+        info.id = "info";
+        
+        L.DomUtil.create("br", null, dlg);
+        let bClose = L.DomUtil.create("button", null, dlg);
+        bClose.innerText = "Close";
+        bClose.id = "closeModal";
+        bClose.addEventListener('click', () => { dlg.close(); });
 
         utils.addFileInputHandler('fileInput', 'mapPiece');
         dlg.addEventListener('close', () => {
-            document.getElementById('fileInput').value = '';
-            const canvas = document.getElementById('mapPiece');
-            canvas.removeAttribute("width");
-            canvas.removeAttribute("height");
+            let f = document.getElementById('fileInput');
+            f.value = '';
+            let c = document.getElementById('mapPiece');
+            c.removeAttribute("width");
+            c.removeAttribute("height");
         });
     }
     dlg.showModal();
@@ -70,148 +70,217 @@ async function analyze() {
         family: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAMCAYAAABbayygAAAAeElEQVR4AXSOgQmAMBADa0dxFmfRmXQWZ3EV5R6uREEh9JPc1/YW374udyqqNkCALJgzKzADgJRdgVls55V2zN0NAGTDjPAwdaMB4Vd2Be7L3JSgnpOsQAZloffs23FOmr8T5nUj70nlYoFsEPLbFJldgRkwKyH8AwAA//+RpTKWAAAABklEQVQDAHfcQiFKPwLGAAAAAElFTkSuQmCC"
     };
 
-    const btnAnalyze = document.getElementById('btnAnalyze');
-    const loader = document.getElementById('loader');
-    const info = document.getElementById('info');
-    
+    let btnAnalyze = document.getElementById('btnAnalyze');
+    let loader = document.getElementById('loader');
+    let info = document.getElementById('info');
+    let dlg = document.getElementById('dlgAnalyze');
+
     loader.show();
-    btnAnalyze.disabled = true;
-    info.innerText = "Analyzing...";
+    btnAnalyze.setAttribute('disabled', "");
+    info.innerText = "";
+
+    // Track OpenCV objects for cleanup
+    let piece = null, dst = null, mask = null, search = null, tmpImage = null,
+        mergedMask = null, tmpMask = null, contours = null, hierarchy = null,
+        channels = null, alphaMask = null, baseMap = null, newChannels = null;
 
     try {
-        let piece = cv.imread('mapPiece');
+        console.log("Begin analyzing map");
+        
+        piece = cv.imread('mapPiece');
         if (piece.cols > 750 && piece.rows > 570) {
             cv.resize(piece, piece, new cv.Size(piece.cols / 2, piece.rows / 2), 0, 0, cv.INTER_NEAREST);
+            console.log("Resized map to " + piece.cols + "x" + piece.rows);
         }
 
+        dst = new cv.Mat();
+        mask = new cv.Mat();
+        tmpImage = new Image();
         let foundWord = "";
         let type = "";
-        let dst = new cv.Mat();
-        let mask = new cv.Mat();
+        let offset = { x: 0, y: 0 };
 
-        // Identify map type
+        console.log("Looking for text");
         for (let word in wordImgs) {
-            let tmpImage = new Image();
             tmpImage.src = wordImgs[word];
             await new Promise(r => tmpImage.onload = r);
-            let search = cv.imread(tmpImage);
+            search = cv.imread(tmpImage);
             cv.matchTemplate(piece, search, dst, cv.TM_CCOEFF_NORMED, mask);
             let result = cv.minMaxLoc(dst, mask);
             if (result.maxVal >= 0.99) {
                 foundWord = word;
-                search.delete();
+                console.log("Identified: " + word);
+                info.innerText += "Identified: " + word + "\n";
+                search.delete(); search = null;
                 break;
             }
-            search.delete();
+            search.delete(); search = null;
         }
 
-        if (!foundWord) {
-            info.innerText = "Error: Could not identify map type.";
-            return;
-        }
+        if (foundWord) {
+            type = (foundWord === "treasure" || foundWord === "inca") ? "treasure" : "family";
+            console.log("Type: " + type);
+            info.innerText += "Type: " + type + "\n";
 
-        type = ["treasure", "inca"].includes(foundWord) ? "treasure" : "family";
-        info.innerText = `Identified: ${foundWord} (${type})\n`;
+            console.log("Masking non-map elements");
+            const removeColors = ["000000", "ccaa99", "0000cc", "775533", "664433", "aa8855", "ccaa77"];
+            tmpMask = new cv.Mat();
+            for (let r of removeColors) {
+                let colorVal = [parseInt(r.substring(0, 2), 16), parseInt(r.substring(2, 4), 16), parseInt(r.substring(4, 6), 16), 0];
+                let low = new cv.Mat(piece.rows, piece.cols, piece.type(), colorVal);
+                let high = new cv.Mat(piece.rows, piece.cols, piece.type(), [colorVal[0], colorVal[1], colorVal[2], 255]);
+                cv.inRange(piece, low, high, tmpMask);
+                if (mergedMask) {
+                    cv.bitwise_or(tmpMask, mergedMask, mergedMask);
+                } else {
+                    mergedMask = tmpMask.clone();
+                }
+                low.delete(); high.delete();
+            }
+            tmpMask.delete(); tmpMask = null;
+            cv.bitwise_not(mergedMask, mergedMask);
 
-        // Mask non-map elements
-        const removeColors = ["000000", "ccaa99", "0000cc", "775533", "664433", "aa8855", "ccaa77"];
-        let mergedMask = new cv.Mat.zeros(piece.rows, piece.cols, cv.CV_8U);
-        let tmpMask = new cv.Mat();
+            contours = new cv.MatVector();
+            hierarchy = new cv.Mat();
+            cv.findContours(mergedMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+            console.log("Found " + contours.size() + " shapes");
 
-        for (let r of removeColors) {
-            let color = [parseInt(r.substring(0, 2), 16), parseInt(r.substring(2, 4), 16), parseInt(r.substring(4, 6), 16), 0];
-            let low = new cv.Mat(piece.rows, piece.cols, piece.type(), color);
-            let high = new cv.Mat(piece.rows, piece.cols, piece.type(), [...color.slice(0, 3), 255]);
-            cv.inRange(piece, low, high, tmpMask);
-            cv.bitwise_or(tmpMask, mergedMask, mergedMask);
-            low.delete(); high.delete();
-        }
-        cv.bitwise_not(mergedMask, mergedMask);
+            let rect = cv.boundingRect(contours.get(0));
+            let pieceROI = piece.roi(rect);
+            let maskROI = mergedMask.roi(rect);
+            let croppedPiece = pieceROI.clone();
+            let croppedMask = maskROI.clone();
+            piece.delete(); piece = croppedPiece;
+            mergedMask.delete(); mergedMask = croppedMask;
+            pieceROI.delete(); maskROI.delete();
+            contours.delete(); contours = null;
+            hierarchy.delete(); hierarchy = null;
 
-        // Crop to map piece
-        let contours = new cv.MatVector();
-        let hierarchy = new cv.Mat();
-        cv.findContours(mergedMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-        let rect = cv.boundingRect(contours.get(0));
-        piece = piece.roi(rect);
-        mergedMask = mergedMask.roi(rect);
-        contours.delete(); hierarchy.delete();
+            console.log("Finding map/marker offset");
+            tmpImage.src = masks[type];
+            await new Promise(r => tmpImage.onload = r);
+            search = cv.imread(tmpImage);
+            channels = new cv.MatVector();
+            cv.split(search, channels);
+            alphaMask = channels.get(3);
+            cv.matchTemplate(piece, search, dst, cv.TM_CCORR_NORMED, alphaMask);
+            let mResult = cv.minMaxLoc(dst, mask);
+            if (mResult.maxVal >= 0.99) {
+                let maxLoc = mResult.maxLoc;
+                offset = type === "family" ? { x: maxLoc.x + 5, y: maxLoc.y + 6 } : { x: maxLoc.x + 17, y: maxLoc.y + 17 };
+                console.log("Offset: " + offset.x + "," + offset.y);
+                info.innerText += "Offset: " + offset.x + "," + offset.y + "\n";
+            }
+            search.delete(); search = null;
+            channels.delete(); channels = null;
+            alphaMask.delete(); alphaMask = null;
 
-        // Find marker offset
-        let tmpImage = new Image();
-        tmpImage.src = masks[type];
-        await new Promise(r => tmpImage.onload = r);
-        let search = cv.imread(tmpImage);
-        let channels = new cv.MatVector();
-        cv.split(search, channels);
-        let alphaMask = channels.get(3);
-        cv.matchTemplate(piece, search, dst, cv.TM_CCORR_NORMED, alphaMask);
-        let result = cv.minMaxLoc(dst, mask);
-        
-        let offset = { x: 0, y: 0 };
-        if (result.maxVal >= 0.99) {
-            offset = type === "family" ? { x: result.maxLoc.x + 5, y: result.maxLoc.y + 6 } : { x: result.maxLoc.x + 17, y: result.maxLoc.y + 17 };
-        }
-        search.delete(); channels.delete(); alphaMask.delete();
+            console.log("Mask out marker");
+            const removeMarker = ["996644", "002222", "ee0000"];
+            cv.bitwise_not(mergedMask, mergedMask);
+            tmpMask = new cv.Mat();
+            for (let r of removeMarker) {
+                let colorVal = [parseInt(r.substring(0, 2), 16), parseInt(r.substring(2, 4), 16), parseInt(r.substring(4, 6), 16), 0];
+                let low = new cv.Mat(piece.rows, piece.cols, piece.type(), colorVal);
+                let high = new cv.Mat(piece.rows, piece.cols, piece.type(), [colorVal[0], colorVal[1], colorVal[2], 255]);
+                cv.inRange(piece, low, high, tmpMask);
+                cv.bitwise_or(tmpMask, mergedMask, mergedMask);
+                low.delete(); high.delete();
+            }
+            tmpMask.delete(); tmpMask = null;
+            cv.bitwise_not(mergedMask, mergedMask);
 
-        // Mask out marker for final match
-        const removeMarker = ["996644", "002222", "ee0000"];
-        cv.bitwise_not(mergedMask, mergedMask);
-        for (let r of removeMarker) {
-            let color = [parseInt(r.substring(0, 2), 16), parseInt(r.substring(2, 4), 16), parseInt(r.substring(4, 6), 16), 0];
-            let low = new cv.Mat(piece.rows, piece.cols, piece.type(), color);
-            let high = new cv.Mat(piece.rows, piece.cols, piece.type(), [...color.slice(0, 3), 255]);
-            cv.inRange(piece, low, high, tmpMask);
-            cv.bitwise_or(tmpMask, mergedMask, mergedMask);
-            low.delete(); high.delete();
-        }
-        cv.bitwise_not(mergedMask, mergedMask);
+            console.log("applying mask");
+            channels = new cv.MatVector();
+            cv.split(piece, channels);
+            newChannels = new cv.MatVector();
+            for (let i = 0; i < 3; i++) newChannels.push_back(channels.get(i));
+            newChannels.push_back(mergedMask);
+            cv.merge(newChannels, piece);
+            channels.delete(); channels = null;
+            newChannels.delete(); newChannels = null;
 
-        // Apply mask to piece alpha channel
-        let pChannels = new cv.MatVector();
-        cv.split(piece, pChannels);
-        let finalChannels = new cv.MatVector();
-        for (let i = 0; i < 3; i++) finalChannels.push_back(pChannels.get(i));
-        finalChannels.push_back(mergedMask);
-        cv.merge(finalChannels, piece);
-        pChannels.delete(); finalChannels.delete();
-
-        // Match against base map
-        let mapImg = new Image();
-        mapImg.src = 'map/PiratesTreasureMapBase.png';
-        await new Promise(r => mapImg.onload = r);
-        let baseMap = cv.imread(mapImg);
-        cv.matchTemplate(baseMap, piece, dst, cv.TM_CCOEFF_NORMED, mergedMask);
-        let finalResult = cv.minMaxLoc(dst, mask);
-
-        if (finalResult.maxVal >= 0.99) {
-            let mapPoint = { x: finalResult.maxLoc.x + offset.x, y: finalResult.maxLoc.y + offset.y };
-            let latLng = baseMapPixelToLatLng(mapPoint.x, mapPoint.y);
+            console.log("Loading TreasureMapBase");
+            tmpImage.src = 'map/PiratesTreasureMapBase.png';
+            await new Promise(r => tmpImage.onload = r);
+            baseMap = cv.imread(tmpImage);
             
-            let feature = {
-                type: "Feature",
-                properties: { type: type === "treasure" ? foundWord : type, description: foundWord === "lost" ? "family member" : foundWord },
-                geometry: { type: "Point", coordinates: [latLng.lng, latLng.lat] }
-            };
+            console.log("Template matching map piece against MapBase");
+            try {
+                cv.matchTemplate(baseMap, piece, dst, cv.TM_CCOEFF_NORMED, mergedMask);
+            } catch (e) {
+                console.log("OpenCv.js error:", e);
+            }
+            
+            let finalResult = cv.minMaxLoc(dst, mask);
+            if (finalResult.maxVal >= 0.99) {
+                let maxLoc = finalResult.maxLoc;
+                let mapPoint = { x: maxLoc.x + offset.x, y: maxLoc.y + offset.y };
+                console.log("baseMap location: " + mapPoint.x + "," + mapPoint.y);
+                info.innerText += "baseMap location: " + mapPoint.x + "," + mapPoint.y + "\n";
+                
+                let latLng = baseMapPixelToLatLng(mapPoint.x, mapPoint.y);
+                let feature = {
+                    type: "Feature",
+                    properties: { 
+                        type: type === "treasure" ? foundWord : type, 
+                        description: (foundWord === "lost" || foundWord === "sister") ? "family member" : foundWord 
+                    },
+                    geometry: { type: "Point", coordinates: [latLng.lng, latLng.lat] }
+                };
 
-            info.innerText += `Location: ${latLng.lat.toFixed(3)}, ${latLng.lng.toFixed(3)}\n`;
-            let btnImport = L.DomUtil.create("button", null, info);
-            btnImport.innerText = "Import marker";
-            btnImport.onclick = () => {
-                markerGroup.addData(feature);
-                dlg.close();
-                map.flyTo([latLng.lat, latLng.lng]);
-            };
-        } else {
-            info.innerText += "Error: Could not find piece on base map.";
+                let markerJSON = JSON.stringify(feature);
+                info.innerText += markerJSON + "\n";
+                
+                let button = L.DomUtil.create("button", null, info);
+                button.innerText = "Import marker";
+                button.onclick = () => {
+                    markerGroup.addData(feature);
+                    if (dlg) dlg.close();
+                    map.flyTo([latLng.lat, latLng.lng]);
+                };
+            } else {
+                console.log("No match found. MaxVal: " + finalResult.maxVal);
+                info.innerText += "Error: Could not find piece on base map.";
+            }
         }
-
-        piece.delete(); dst.delete(); mask.delete(); mergedMask.delete(); tmpMask.delete(); baseMap.delete();
     } catch (e) {
-        console.error(e);
-        info.innerText = "OpenCV Error: " + e.message;
+        console.error("Analysis failed:", e);
+        info.innerText = "Error: " + (e.message || e);
     } finally {
+        if (piece) piece.delete();
+        if (dst) dst.delete();
+        if (mask) mask.delete();
+        if (mergedMask) mergedMask.delete();
+        if (tmpMask) tmpMask.delete();
+        if (search) search.delete();
+        if (contours) contours.delete();
+        if (hierarchy) hierarchy.delete();
+        if (channels) channels.delete();
+        if (alphaMask) alphaMask.delete();
+        if (baseMap) baseMap.delete();
+        if (newChannels) newChannels.delete();
+        
+        console.log("Finished analyzing");
         loader.hide();
-        btnAnalyze.disabled = false;
+        btnAnalyze.removeAttribute('disabled');
     }
+}
+
+function baseMapPixelToLatLng(x, y) {
+    const maxX = 5120;
+    const maxY = 3208;
+    const minLat = 30.279;
+    const minLng = -96.744;
+    const maxLat = 13.687;
+    const maxLng = -58.563;
+    
+    const distLat = maxLat - minLat;
+    const distLng = maxLng - minLng;
+    const pxPerLat = maxY / distLat;
+    const pxPerLng = maxX / distLng;
+    
+    const lng = x / pxPerLng + minLng;
+    const lat = y / pxPerLat + minLat;
+    return { lat, lng };
 }
