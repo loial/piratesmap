@@ -311,6 +311,22 @@ L.Control.Markers = L.Control.extend({
         this._markerGroup.on("layeradd layerremove", this._update, this);
         return this._container;
     },
+    expand: function () {
+        L.DomUtil.addClass(this._container, 'leaflet-control-markers-expanded');
+        this._section.style.height = null;
+        const acceptableHeight = map.getSize().y - (this._container.offsetTop + 50);
+        if (acceptableHeight < this._section.clientHeight) {
+            L.DomUtil.addClass(this._section, 'leaflet-control-markers-scrollbar');
+            this._section.style.height = acceptableHeight + 'px';
+        } else {
+            L.DomUtil.removeClass(this._section, 'leaflet-control-markers-scrollbar');
+        }
+        return this;
+    },
+    collapse: function () {
+        L.DomUtil.removeClass(this._container, 'leaflet-control-markers-expanded');
+        return this;
+    },
     _initLayout: function () {
         const className = 'leaflet-control-markers';
         const container = this._container = L.DomUtil.create('div', className);
@@ -319,25 +335,50 @@ L.Control.Markers = L.Control.extend({
 
         const section = this._section = L.DomUtil.create('section', className + '-list');
         if (this.options.collapsed) {
-            map.on('click', () => L.DomUtil.removeClass(this._container, className + '-expanded'), this);
+            map.on('click', this.collapse, this);
             L.DomEvent.on(container, {
-                mouseenter: () => L.DomUtil.addClass(this._container, className + '-expanded'),
-                mouseleave: () => L.DomUtil.removeClass(this._container, className + '-expanded')
+                mouseenter: this.expand,
+                mouseleave: this.collapse
             }, this);
         }
 
         const link = L.DomUtil.create('a', className + '-toggle', container);
         link.href = '#';
-        L.DomEvent.on(link, 'click', L.DomEvent.preventDefault);
+        link.title = 'Markers';
+        L.DomEvent.on(link, {
+            keydown: (e) => { if (e.keyCode === 13) this.expand(); },
+            click: (e) => {
+                L.DomEvent.preventDefault(e);
+                this.expand();
+            }
+        }, this);
 
         const header = L.DomUtil.create('div', className + "-header", section);
-        header.innerHTML = `<div><b>Markers</b></div><div><span class="${className}-analyzeicon">🗺️</span><span class="${className}-addicon">+</span></div>`;
+        const titleDiv = L.DomUtil.create('div', null, header);
+        titleDiv.innerHTML = '<b>Markers</b>';
+
+        const actionDiv = L.DomUtil.create('div', null, header);
         
-        header.querySelector(`.${className}-analyzeicon`).onclick = () => typeof dialog === 'function' ? dialog() : console.log("Analyze script not loaded");
+        const analyzeIcon = L.DomUtil.create('span', className + "-analyzeicon", actionDiv);
+        analyzeIcon.innerText = "🗺️";
+        analyzeIcon.onclick = () => typeof dialog === 'function' ? dialog() : console.log("Analyze script not loaded");
         
-        const addBtn = header.querySelector(`.${className}-addicon`);
-        const addDialog = this._addDialog = L.DomUtil.create('div', className + "-add-dialog", header);
-        addDialog.innerHTML = `<form><select>${["treasure", "inca", "evil", "family", "fleet", "train", "missionsource", "missiontarget", "informant"].map(t => `<option>${t}</option>`).join('')}</select><br/><input type="text"><br/><span class="${className}-add-dialog-info">Click on map to create marker</span></form>`;
+        const addBtn = L.DomUtil.create('span', className + "-addicon", actionDiv);
+        addBtn.innerText = '+';
+
+        const addDialog = this._addDialog = L.DomUtil.create('div', className + "-add-dialog", actionDiv);
+        addDialog.innerHTML = `
+            <form>
+                <select>
+                    ${["treasure", "inca", "evil", "family", "fleet", "train", "missionsource", "missiontarget", "informant"]
+                        .map(t => `<option value="${t}">${t}</option>`).join('')}
+                </select>
+                <br/>
+                <input type="text" placeholder="Description...">
+                <br/>
+                <span class="${className}-add-dialog-info">Click on map to create marker</span>
+            </form>
+        `;
 
         addBtn.onclick = () => {
             if (addBtn.innerText === "+") {
@@ -357,6 +398,10 @@ L.Control.Markers = L.Control.extend({
         storeBtn.onclick = () => localStorage.setItem("markers", JSON.stringify(this._markerGroup.toGeoJSON()));
         
         container.appendChild(section);
+
+        if (!this.options.collapsed) {
+            this.expand();
+        }
     },
     _cleanupAdd: function() {
         map.off("click", this._addOnMapClick, this);
@@ -401,6 +446,10 @@ L.Control.Markers = L.Control.extend({
         });
     }
 });
+
+L.control.markers = function (markerGroup, opts) {
+    return new L.Control.Markers(markerGroup, opts);
+};
 
 setTimeout(() => L.control.markers(markerGroup, { collapsed: false }).addTo(map), 10);
 
