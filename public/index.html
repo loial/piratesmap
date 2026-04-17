@@ -8,7 +8,6 @@
     <!-- Leaflet & Plugins CSS -->
     <link rel="stylesheet" href="leaflet.css">
     <link rel="stylesheet" href="leaflet-search.min.css">
-    
     <!-- Project CSS -->
     <link rel="stylesheet" href="style.css">
 
@@ -16,30 +15,18 @@
     <script src="leaflet.js"></script>
     <script src="leaflet-search.min.js"></script>
     <script src="leaflet.latlng-graticule.js"></script>
+    <!-- Leaflet-smooth-marker-bouncing -->
     <script src="leaflet-smoothmarkerbouncing-bundle.min.js"></script>
-    
-    <!-- OpenCV.js & Utils -->
-    <script src="opencv-utils.js"></script>
-    <script async src="opencv.js" onload="onOpenCvReady();"></script>
-</head>
-<body>
+    </head>
+    <body>
     <div id="map"></div>
-
     <noscript>
         <b>NoScript version: Static image</b><br/>
         <a target="_top" href="map/PiratesMapFull.png"><img src="map/PiratesMapFull.png" style="width:100%"></a>
     </noscript>
-
     <!-- Data & Application Logic -->
     <script src="cities.js"></script>
     <script src="map.js"></script>
     <script src="analyze.js"></script>
-
-    <script>
-        function onOpenCvReady() {
-            window.utils = new Utils('errorMessage');
-            console.log('OpenCV.js is ready.');
-        }
-    </script>
-</body>
-</html>
+    </body>
+    </html>
