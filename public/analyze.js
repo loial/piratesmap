@@ -1,20 +1,28 @@
 /**
- * PiratesMap - Jimp-Powered Map Analyzer (v3.3)
- * Logic: Strict deterministic pixel-probe identification at Amiga scale.
+ * PiratesMap - Sophisticated Jimp Map Analyzer (v4.7)
+ * Logic: Frame-based scaling, deterministic identification, and "Clean Piece" matching.
+ * Features: Collapsible progress status and dedicated result container.
  */
 
 const isNode = typeof window === 'undefined';
-let J; // Local Jimp reference
-let intToRGBA;
+let _Jimp = null;
+let _intToRGBA = null;
 
-if (isNode) {
-    const jimpModule = require('jimp');
-    J = jimpModule.Jimp;
-    intToRGBA = jimpModule.intToRGBA;
-    global.L = { DomUtil: { create: () => ({ append: () => {} }) } };
-} else {
-    J = window.Jimp;
-    intToRGBA = J.intToRGBA;
+async function getJimp() {
+    if (_Jimp) return { Jimp: _Jimp, intToRGBA: _intToRGBA };
+    if (isNode) {
+        const jimpModule = require('jimp');
+        _Jimp = jimpModule.Jimp;
+        _intToRGBA = jimpModule.intToRGBA;
+        global.L = { DomUtil: { create: () => ({ append: () => {} }) } };
+    } else {
+        if (!window.Jimp) {
+            throw new Error("Jimp library not loaded. Check your internet connection or index.html script tag.");
+        }
+        _Jimp = window.Jimp;
+        _intToRGBA = _Jimp.intToRGBA || window.intToRGBA;
+    }
+    return { Jimp: _Jimp, intToRGBA: _intToRGBA };
 }
 
 const ANALYZER_CONFIG = {
@@ -22,15 +30,16 @@ const ANALYZER_CONFIG = {
     mapWidth: 5120,
     mapHeight: 3208,
     isLand: (r, g, b) => r > b + 10,
-    isWater: (r, g, b) => b > r + 10
+    isWater: (r, g, b) => b > r + 10,
+    removeColors: ["000000", "ccaa99", "0000cc", "775533", "664433", "aa8855", "ccaa77"],
+    markerColors: ["ee0000", "996644", "002222"]
 };
 
-// State
 let masterLandMask = null;
 
 async function getMasterMask() {
     if (masterLandMask) return masterLandMask;
-    const Jimp = J;
+    const { Jimp } = await getJimp();
     const image = await Jimp.read(ANALYZER_CONFIG.masterMapUrl);
     const { data, width, height } = image.bitmap;
     masterLandMask = new Uint8Array(Math.ceil((width * height) / 8));
@@ -43,82 +52,97 @@ async function getMasterMask() {
     return masterLandMask;
 }
 
-async function runAnalysis(imageSource) {
-    const Jimp = J;
-    console.log("Reading map piece...");
+async function runAnalysis(imageSource, onProgress = () => {}) {
+    const { Jimp, intToRGBA } = await getJimp();
+    onProgress("Reading map piece...");
     
-    // 1. Load and Autocrop
+    // 1. Initial Load & Normalize
     let image = await Jimp.read(imageSource);
     image.autocrop(); 
     
-    // 2. Detect Frame Width (Blue border check)
     const startColor = image.getPixelColor(0, 0);
     let frameWidth = 0;
-    // Walk diagonal until we leave the frame color
     while (image.getPixelColor(frameWidth, frameWidth) === startColor && frameWidth < 20) {
         frameWidth++;
     }
-    console.log(`Detected frame width: ${frameWidth}px`);
-
-    // 3. Normalize to Amiga Scale (frame should be 1px)
-    const scale = 1 / frameWidth;
+    const scale = 1 / (frameWidth || 1);
     if (frameWidth > 1) {
-        console.log(`Resizing by ${scale.toFixed(2)}x to normalize to Amiga resolution...`);
-        image.resize({ w: Math.round(image.bitmap.width * scale), mode: 'nearestNeighbor' });
+        const targetW = Math.round(image.bitmap.width * scale);
+        const targetH = Math.round(image.bitmap.height * scale);
+        onProgress(`Normalizing piece (Amiga scale: ${targetW}x${targetH})...`);
+        try {
+            image.resize({ w: targetW, h: targetH, mode: 'nearestNeighbor' });
+        } catch (e) {
+            image.resize(targetW, targetH);
+        }
     }
 
-    // 4. Pixel-Probe Identification (STRICT 1x1)
+    // 2. Deterministic Identification
+    onProgress("Identifying map type...");
+    const getHex = (x, y) => {
+        const rgba = intToRGBA(image.getPixelColor(x, y));
+        const toHex = (c) => c.toString(16).padStart(2, '0');
+        return toHex(rgba.r) + toHex(rgba.g) + toHex(rgba.b);
+    };
     const isInk = (x, y) => {
         const rgba = intToRGBA(image.getPixelColor(x, y));
         return rgba.r < 110 && rgba.g < 110 && rgba.b < 110;
     };
 
     let properties = { type: "family", description: "Mother" };
-    
     if (isInk(10, 9)) {
         properties = { type: "treasure", description: "Treasure Map" };
     } else {
-        // Starts with "Map to lost..."
-        if (isInk(60, 8)) {
-            properties = { type: "inca", description: "Inca Treasure" };
-        } else if (isInk(62, 7)) {
-            properties = { type: "family", description: "Father" };
-        } else if (isInk(63, 8)) {
-            properties = { type: "family", description: "Sister" };
-        } else if (isInk(62, 13)) {
-            properties = { type: "family", description: "Uncle" };
-        }
+        if (isInk(60, 8)) properties = { type: "inca", description: "Inca Treasure" };
+        else if (isInk(62, 7)) properties = { type: "family", description: "Father" };
+        else if (isInk(63, 8)) properties = { type: "family", description: "Sister" };
+        else if (isInk(62, 13)) properties = { type: "family", description: "Uncle" };
     }
-    console.log(`Identified: ${properties.description} (${properties.type})`);
+    onProgress(`Type: ${properties.description}. Pre-processing content...`);
 
-    // 5. Marker Offset & Location matching
-    const masterMask = await getMasterMask();
-    const { data, width, height } = image.bitmap;
-    
-    const landPoints = [], waterPoints = [];
-    let redPoints = [];
+    // 3. Sophisticated Cleaning & Marker Extraction
+    const { width, height } = image.bitmap;
+    let markerPixels = [];
+    let landPoints = [], waterPoints = [];
+
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            const idx = (y * width + x) * 4;
-            const r = data[idx], g = data[idx+1], b = data[idx+2];
-            if (r > 200 && g < 100 && b < 100) redPoints.push({x, y});
-            else if (ANALYZER_CONFIG.isLand(r, g, b)) landPoints.push({ x, y });
-            else if (ANALYZER_CONFIG.isWater(r, g, b)) waterPoints.push({ x, y });
+            const hex = getHex(x, y);
+            const rgba = intToRGBA(image.getPixelColor(x, y));
+            if (ANALYZER_CONFIG.markerColors.includes(hex)) {
+                markerPixels.push({x, y});
+                image.setPixelColor(0x00000000, x, y);
+            } else if (ANALYZER_CONFIG.removeColors.includes(hex)) {
+                image.setPixelColor(0x00000000, x, y);
+            } else if (ANALYZER_CONFIG.isLand(rgba.r, rgba.g, rgba.b)) {
+                landPoints.push({ x, y });
+            } else if (ANALYZER_CONFIG.isWater(rgba.r, rgba.g, rgba.b)) {
+                waterPoints.push({ x, y });
+            }
         }
     }
 
     let itemOffset = { x: width / 2, y: height / 2 };
-    if (properties.type !== "family" && redPoints.length > 0) {
-        itemOffset.x = redPoints.reduce((s, p) => s + p.x, 0) / redPoints.length;
-        itemOffset.y = redPoints.reduce((s, p) => s + p.y, 0) / redPoints.length;
+    if (markerPixels.length > 0) {
+        itemOffset.x = markerPixels.reduce((s, p) => s + p.x, 0) / markerPixels.length;
+        itemOffset.y = markerPixels.reduce((s, p) => s + p.y, 0) / markerPixels.length;
     }
 
-    const landProbes = Array.from({length: 300}, () => landPoints[Math.floor(Math.random() * landPoints.length)]);
+    // 4. Sparse-Sampling Search on "Cleaned" data
+    const masterMask = await getMasterMask();
+    const landProbes = Array.from({length: Math.min(300, landPoints.length)}, () => landPoints[Math.floor(Math.random() * landPoints.length)]);
     const waterProbes = Array.from({length: Math.min(300, waterPoints.length)}, () => waterPoints[Math.floor(Math.random() * waterPoints.length)]);
 
     let bestMatch = { x: 0, y: 0, score: -Infinity };
-    for (let my = 0; my < ANALYZER_CONFIG.mapHeight - height; my += 3) {
-        for (let mx = 0; mx < ANALYZER_CONFIG.mapWidth - width; mx += 3) {
+    const step = 3;
+    
+    onProgress("Scanning master map for location candidates...");
+    for (let my = 0; my < ANALYZER_CONFIG.mapHeight - height; my += step) {
+        if (my % 300 === 0 && !isNode) {
+            onProgress(`Scanning... (${Math.round((my / (ANALYZER_CONFIG.mapHeight - height)) * 100)}%)`);
+            await new Promise(r => setTimeout(r, 0));
+        }
+        for (let mx = 0; mx < ANALYZER_CONFIG.mapWidth - width; mx += step) {
             let score = 0;
             for (const p of landProbes) {
                 const idx = (my + p.y) * ANALYZER_CONFIG.mapWidth + (mx + p.x);
@@ -133,14 +157,13 @@ async function runAnalysis(imageSource) {
     }
 
     const confidence = (bestMatch.score / (landProbes.length + waterProbes.length)) * 100;
+    onProgress(`Scanning complete. Candidate confirmed at ${confidence.toFixed(1)}% confidence.`);
+    
     const finalX = bestMatch.x + itemOffset.x;
     const finalY = bestMatch.y + itemOffset.y;
     const latLng = baseMapPixelToLatLng(finalX, finalY);
 
-    return {
-        confidence, properties, location: latLng, pixels: { x: finalX, y: finalY },
-        feature: { type: "Feature", properties, geometry: { type: "Point", coordinates: [latLng.lng, latLng.lat] } }
-    };
+    return { confidence, properties, location: latLng, pixels: { x: finalX, y: finalY }, feature: { type: "Feature", properties, geometry: { type: "Point", coordinates: [latLng.lng, latLng.lat] } } };
 }
 
 function baseMapPixelToLatLng(x, y) {
@@ -155,32 +178,105 @@ if (!isNode) {
         if (!dlg) {
             dlg = L.DomUtil.create("dialog", null, document.body);
             dlg.id = "dlgAnalyze";
-            dlg.innerHTML = `<div style="min-width: 450px; padding: 15px; font-family: sans-serif;"><h2>Map Analyzer (v3.3)</h2><canvas id="analyzeCanvas" style="max-width: 100%; height: auto; border: 1px solid #999; display: block; margin-bottom: 15px; background: #222;"></canvas><input id="fileInput" type="file" accept="image/*" style="margin-bottom: 15px; display: block; width: 100%;"><button id="btnAnalyze" style="padding: 12px 24px; cursor: pointer; background: #0078d4; color: white; border: none; border-radius: 4px; font-weight: bold; width: 100%;">Analyze Map Piece <img src="images/loader.gif" id="loader" class="hidden" style="vertical-align: middle; margin-left: 10px;"></button><code id="info" style="display: block; margin: 20px 0; background: #eee; padding: 15px; border-left: 5px solid #0078d4; white-space: pre-wrap; font-size: 13px; min-height: 50px;"></code><div style="text-align: right;"><button id="closeModal">Close</button></div></div>`;
+            dlg.innerHTML = `
+<style>
+    @keyframes analyze-spin { to { transform: rotate(360deg); } }
+    .analyze-spinner { 
+        display: inline-block; width: 14px; height: 14px; 
+        border: 2px solid rgba(255,255,255,.3); border-radius: 50%; 
+        border-top-color: #fff; animation: analyze-spin 0.6s linear infinite; 
+        vertical-align: middle; margin-left: 10px;
+    }
+    #btnAnalyze:disabled { background-color: #ccc !important; color: #888 !important; cursor: not-allowed; }
+    .hidden { display: none !important; }
+    .status-summary { 
+        padding: 12px; cursor: pointer; font-family: monospace; font-size: 13px; 
+        background: #eee; border-left: 5px solid #0078d4; outline: none;
+    }
+    .status-summary:hover { background: #e5e5e5; }
+    .status-history { 
+        display: block; padding: 10px 15px; white-space: pre-wrap; font-size: 12px; 
+        max-height: 150px; overflow-y: auto; background: #fafafa; border: 1px solid #ddd; border-top: none;
+    }
+</style>
+<div style="min-width: 450px; padding: 15px; font-family: sans-serif;">
+    <h2 style="margin-top: 0;">Map Analyzer</h2>
+    <p style="color: #666; margin-bottom: 20px;">Please upload a screenshot of a map fragment to identify its type and location.</p>
+    <canvas id="analyzeCanvas" style="max-width: 100%; height: auto; border: 1px solid #999; display: block; margin-bottom: 15px; background: #222;"></canvas>
+    <input id="fileInput" type="file" accept="image/*" style="margin-bottom: 15px; display: block; width: 100%;">
+    <button id="btnAnalyze" style="padding: 12px 24px; cursor: pointer; background: #0078d4; color: white; border: none; border-radius: 4px; font-weight: bold; width: 100%;">
+        Analyze Map Piece <span id="loader" class="analyze-spinner hidden"></span>
+    </button>
+    
+    <details id="statusDetails" style="margin: 20px 0;">
+        <summary id="statusCurrent" class="status-summary">Ready to analyze.</summary>
+        <code id="statusHistory" class="status-history"></code>
+    </details>
+
+    <div id="resultBox" class="hidden" style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border: 1px solid #0078d4; border-radius: 4px; font-size: 14px;">
+    </div>
+
+    <div style="text-align: right;"><button id="closeModal">Close</button></div>
+</div>`;
             const fileInput = dlg.querySelector("#fileInput"); const canvas = dlg.querySelector("#analyzeCanvas");
+            const statusCurrent = dlg.querySelector("#statusCurrent"); const statusHistory = dlg.querySelector("#statusHistory");
+            const resultBox = dlg.querySelector("#resultBox");
+
             fileInput.onchange = (e) => {
                 const file = e.target.files[0]; if (!file) return;
+                statusCurrent.innerText = "New file loaded. Ready to analyze.";
+                statusHistory.innerText = "";
+                resultBox.innerHTML = ""; resultBox.classList.add("hidden");
+                
                 const reader = new FileReader(); reader.onload = async (ev) => {
-                    const Jimp = window.Jimp;
+                    const { Jimp } = await getJimp();
                     const image = await Jimp.read(ev.target.result);
                     canvas.width = image.bitmap.width; canvas.height = image.bitmap.height;
                     const ctx = canvas.getContext('2d');
                     const imageData = ctx.createImageData(image.bitmap.width, image.bitmap.height);
-                    imageData.data.set(image.bitmap.data);
-                    ctx.putImageData(imageData, 0, 0);
+                    imageData.data.set(image.bitmap.data); ctx.putImageData(imageData, 0, 0);
                 };
                 reader.readAsArrayBuffer(file);
             };
+            
             dlg.querySelector("#btnAnalyze").onclick = async () => {
-                const btn = document.getElementById('btnAnalyze'), loader = document.getElementById('loader'), info = document.getElementById('info');
-                loader.classList.remove("hidden"); btn.disabled = true; info.innerText = "Analyzing...";
+                const btn = document.getElementById('btnAnalyze'), loader = document.getElementById('loader');
+                loader.classList.remove("hidden"); btn.disabled = true;
+                statusHistory.innerText = ""; resultBox.innerHTML = ""; resultBox.classList.add("hidden");
+                
+                let history = [];
+                const updateProgress = (msg) => {
+                    statusCurrent.innerText = msg;
+                    // For history, we don't want to spam "Scanning... 10%, 11%, etc"
+                    if (msg.startsWith("Scanning...") && history.length > 0 && history[history.length-1].startsWith("Scanning...")) {
+                        history[history.length-1] = msg;
+                    } else {
+                        history.push(msg);
+                    }
+                    statusHistory.innerText = history.join('\n');
+                    statusHistory.scrollTop = statusHistory.scrollHeight;
+                };
+
                 try {
-                    const file = fileInput.files[0];
+                    const file = fileInput.files[0]; if (!file) throw new Error("Please select a file first.");
                     const buffer = await file.arrayBuffer();
-                    const result = await runAnalysis(buffer);
-                    info.innerHTML = `Match Found! Confidence: ${result.confidence.toFixed(1)}%\nType: ${result.properties.description}\nLocation: ${result.location.lat.toFixed(4)}, ${result.location.lng.toFixed(4)}`;
-                    const importBtn = L.DomUtil.create("button", null, info); importBtn.innerText = "Import Marker"; importBtn.style.display = "block"; importBtn.style.marginTop = "10px";
+                    updateProgress("Initializing analyzer...");
+                    const result = await runAnalysis(buffer, updateProgress);
+                    
+                    statusCurrent.innerText = "Analysis Complete.";
+                    resultBox.classList.remove("hidden");
+                    resultBox.innerHTML = `
+                        <div style="font-weight: bold; color: #0078d4; margin-bottom: 8px; font-size: 16px;">Match Found!</div>
+                        <strong>Type:</strong> ${result.properties.description}<br>
+                        <strong>Confidence:</strong> ${result.confidence.toFixed(1)}%<br>
+                        <strong>Location:</strong> ${result.location.lat.toFixed(4)}, ${result.location.lng.toFixed(4)}
+                    `;
+                    
+                    const importBtn = L.DomUtil.create("button", null, resultBox); 
+                    importBtn.innerText = "Import Marker to Map"; 
+                    importBtn.style.cssText = "display: block; margin-top: 12px; width: 100%; padding: 10px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold;";
                     importBtn.onclick = () => { markerGroup.addData(result.feature); dlg.close(); map.flyTo(result.location, 5); };
-                } catch (e) { console.error(e); info.innerText = "Error: " + e.message; }
+                } catch (e) { console.error(e); statusCurrent.innerText = "Error: " + e.message; }
                 finally { loader.classList.add("hidden"); btn.disabled = false; }
             };
             dlg.querySelector("#closeModal").onclick = () => dlg.close();
@@ -190,7 +286,7 @@ if (!isNode) {
 } else if (require.main === module) {
     const args = process.argv.slice(2);
     if (args.length === 0) { console.log("Usage: node public/analyze.js <path-to-map-piece.png>"); process.exit(1); }
-    runAnalysis(args[0]).then(result => {
+    runAnalysis(args[0], (m) => console.log(`[Progress] ${m}`)).then(result => {
         const output = { metadata: { confidence: result.confidence.toFixed(1) + "%", pixels: result.pixels, type: result.properties.type, description: result.properties.description }, feature: result.feature };
         console.log(JSON.stringify(output, null, 2));
     }).catch(err => { console.error("Analysis Failed:", err.message); process.exit(1); });
