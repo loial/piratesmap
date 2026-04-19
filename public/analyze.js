@@ -204,7 +204,7 @@ if (!isNode) {
     <p style="color: #666; margin-bottom: 20px;">Please upload a screenshot of a map fragment to identify its type and location.</p>
     <canvas id="analyzeCanvas" style="max-width: 100%; height: auto; border: 1px solid #999; display: block; margin-bottom: 15px; background: #222;"></canvas>
     <input id="fileInput" type="file" accept="image/*" style="margin-bottom: 15px; display: block; width: 100%;">
-    <button id="btnAnalyze" style="padding: 12px 24px; cursor: pointer; background: #0078d4; color: white; border: none; border-radius: 4px; font-weight: bold; width: 100%;">
+    <button id="btnAnalyze" style="padding: 12px 24px; cursor: pointer; background: #0078d4; color: white; border: none; border-radius: 4px; width: 100%;">
         Analyze Map Piece <span id="loader" class="analyze-spinner hidden"></span>
     </button>
     
@@ -274,7 +274,7 @@ if (!isNode) {
                     
                     const importBtn = L.DomUtil.create("button", null, resultBox); 
                     importBtn.innerText = "Import Marker to Map"; 
-                    importBtn.style.cssText = "display: block; margin-top: 12px; width: 100%; padding: 10px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold;";
+                    importBtn.style.cssText = "display: block; margin-top: 12px; width: 100%; padding: 10px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px;";
                     importBtn.onclick = () => { markerGroup.addData(result.feature); dlg.close(); map.flyTo(result.location, 5); };
                 } catch (e) { console.error(e); statusCurrent.innerText = "Error: " + e.message; }
                 finally { loader.classList.add("hidden"); btn.disabled = false; }

@@ -1,4 +1,16 @@
 /* PiratesMap Styles */
+@font-face {
+    font-family: piratesFont; /* set name */
+    src: url(Pirates_Amiga.woff2); /* url of the font */
+}
+.leaflet-container,
+input[type='text'].search-input,
+#dlgAnalyze,
+#dlgAnalyze button,
+#dlgAnalyze > div > h2,
+#dlgAnalyze > div > p{
+    font-family: piratesFont; /* use font */
+}
 
 body {
     margin: 0;

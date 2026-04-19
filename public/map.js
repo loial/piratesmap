@@ -41,6 +41,7 @@ const mutuallyExclusiveOverlays = {
 };
 
 const latlngLayer = L.latlngGraticule({
+    font: "12px piratesFont",
     showLabel: true,
     dashArray: [1, 1],
     zoomInterval: {
