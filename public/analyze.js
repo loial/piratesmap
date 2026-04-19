@@ -89,16 +89,17 @@ async function runAnalysis(imageSource, onProgress = () => {}) {
         return rgba.r < 110 && rgba.g < 110 && rgba.b < 110;
     };
 
-    let properties = { type: "family", description: "Mother" };
+    let properties; // = { type: "family", description: "Mother" };
     if (isInk(10, 9)) {
-        properties = { type: "treasure", description: "Treasure Map" };
+        properties = { type: "treasure" };
     } else {
-        if (isInk(60, 8)) properties = { type: "inca", description: "Inca Treasure" };
+        if (isInk(60, 8)) properties = { type: "inca" };
         else if (isInk(62, 7)) properties = { type: "family", description: "Father" };
         else if (isInk(63, 8)) properties = { type: "family", description: "Sister" };
         else if (isInk(62, 13)) properties = { type: "family", description: "Uncle" };
+        else properties = { type: "family", description: "Mother" };
     }
-    onProgress(`Type: ${properties.description}. Pre-processing content...`);
+    onProgress(`Type: ${properties.description || properties.type}. Pre-processing content...`);
 
     // 3. Sophisticated Cleaning & Marker Extraction
     const { width, height } = image.bitmap;
@@ -262,7 +263,7 @@ if (!isNode) {
                     const buffer = await file.arrayBuffer();
                     updateProgress("Initializing analyzer...");
                     const result = await runAnalysis(buffer, updateProgress);
-                    
+                    map.flyTo(result.location, 5);
                     statusCurrent.innerText = "Analysis Complete.";
                     resultBox.classList.remove("hidden");
                     resultBox.innerHTML = `

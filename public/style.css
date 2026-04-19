@@ -114,6 +114,11 @@ body {
     cursor: pointer;
 }
 
+.leaflet-control-markers-addicon {
+    font-size:large
+}
+
+
 .leaflet-control-markers-add-dialog {
     display: none;
 }
