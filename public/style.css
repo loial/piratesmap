@@ -12,6 +12,64 @@ input[type='text'].search-input,
     font-family: piratesFont; /* use font */
 }
 
+:root {
+    --city-label-scale: 1;
+    --city-label-offset-scale: 1;
+}
+
+.leaflet-tooltip.city-labels {
+    background-color: transparent !important;
+    border: transparent !important;
+    box-shadow: none !important;
+    color: white !important;
+    pointer-events: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    /* Force the container to be a 0x0 point at the coordinates */
+    width: 0 !important;
+    height: 0 !important;
+    overflow: visible !important;
+}
+
+.city-label-inner {
+    position: absolute;
+    white-space: nowrap;
+    font-size: calc(14px * var(--city-label-scale));
+    text-shadow: 1px 1px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000;
+    /* Smooth transitions for zoom animations */
+    transition: font-size 0.1s ease-out, top 0.1s ease-out, bottom 0.1s ease-out, left 0.1s ease-out, right 0.1s ease-out;
+}
+
+/* top: bottom edge centered on anchor */
+.label-top .city-label-inner {
+    bottom: calc(8px * var(--city-label-offset-scale));
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* bottom: top edge centered on anchor */
+.label-bottom .city-label-inner {
+    top: calc(8px * var(--city-label-offset-scale));
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* left: right edge centered on anchor */
+.label-left .city-label-inner {
+    right: calc(10px * var(--city-label-offset-scale));
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: right;
+}
+
+/* right: left edge centered on anchor */
+.label-right .city-label-inner {
+    left: calc(10px * var(--city-label-offset-scale));
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: left;
+}
+
 body {
     margin: 0;
     padding: 0;

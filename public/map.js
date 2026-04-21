@@ -89,7 +89,15 @@ const citiesLayer = L.layerGroup();
 citiesLayer.cities = {};
 
 function onEachCityFeature(feature, layer) {
+    const direction = feature.properties.label_direction || "center";
+
+    layer.bindTooltip(`<div class="city-label-inner">${feature.properties.name}</div>`, {
+        permanent: true,
+        direction: "center",
+        className: "city-labels label-" + direction
+    });
     let popupContent = `<b>${feature.properties.name} - ${feature.properties.location}</b>`;
+
     citiesLayer.cities[feature.properties.name] = layer;
     if (feature.properties.link) {
         popupContent += `<br/>See also: <a href="#" class="citylink">${feature.properties.link}</a>`;
@@ -455,5 +463,26 @@ L.control.markers = function (markerGroup, opts) {
 setTimeout(() => L.control.markers(markerGroup, { collapsed: false }).addTo(map), 10);
 
 map.setView(L.latLng(24, -78), 3);
+
+// Dynamic Label Scaling
+function updateLabelScale() {
+    const zoom = map.getZoom();
+
+    // Continuous function: offsetScale ranges from 0.1 (z2) to 6.0 (z6)
+    // and doubles between z5 and z6.
+    const offsetScale = 0.1 * Math.pow(zoom / 2, 3.75);
+
+    // Linear font scaling from ~0.7 to 1.9
+    const fontScale = 0.3 * zoom + 0.1;
+
+    const root = document.documentElement;
+    root.style.setProperty('--city-label-scale', fontScale);
+    root.style.setProperty('--city-label-offset-scale', offsetScale);
+}
+
+
+map.on('zoom', updateLabelScale);
+updateLabelScale(); // Initialize on load
+
 document.getElementById('map').style.cursor = 'crosshair';
 map.attributionControl.addAttribution("Artwork from Sid Meier's Pirates! (1990 - Amiga) | Manual info | Compiled by Herman Sletteng");
