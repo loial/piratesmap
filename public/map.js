@@ -223,8 +223,16 @@ function updateOverlayUI() {
                 input.checked = isActive; 
                 input.disabled = isActive; // Disable active to prevent unchecking
                 labelEl.style.cursor = isActive ? "default" : "pointer";
-                labelEl.style.opacity = isActive ? "0.7" : "1";
+                labelEl.style.opacity = "1"; 
+                
+                // Toggle highlighting class
+                if (isActive) {
+                    labelEl.classList.add("active-overlay-label");
+                } else {
+                    labelEl.classList.remove("active-overlay-label");
+                }
             }
+
         });
     }, 100);
 }
@@ -571,6 +579,12 @@ function updateLabelScale() {
 
 
 map.on('zoom', updateLabelScale);
+map.on('zoomend', () => {
+    updateOverlayUI();
+    // Re-filter just in case Leaflet re-rendered marker elements
+    let era = parseInt(storage.defaultOverlay.split(" ")[0]);
+    filterCities(era);
+});
 updateLabelScale(); // Initialize on load
 
 document.getElementById('map').style.cursor = 'crosshair';
