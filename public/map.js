@@ -75,21 +75,12 @@ if (storage) {
     };
 }
 
-// Map Initialization
-const initialLayers = [baseMaps[storage.baseLayer]];
-if (storage.baseLayer === "Compile Map (dynamic)" && storage.defaultOverlay) {
-    initialLayers.push(mutuallyExclusiveOverlays[storage.defaultOverlay]);
-}
-if (storage.latlngOverlay && storage.baseLayer !== "Official Map") {
-    initialLayers.push(latlngLayer);
-}
-
+// Create map with NO layers initially to prevent race conditions in listeners
 const map = L.map('map', {
     crs: L.CRS.PiratesCRS,
     minZoom: 2,
     maxZoom: 6,
-    wheelPxPerZoomLevel: 20,
-    layers: initialLayers
+    wheelPxPerZoomLevel: 20
 });
 
 // City Layer
@@ -137,7 +128,6 @@ L.geoJSON(cities, {
         });
     }
 }).addTo(citiesLayer);
-citiesLayer.addTo(map);
 
 function filterCities(era) {
     const isDynamicBase = storage.baseLayer === "Compile Map (dynamic)";
@@ -158,10 +148,6 @@ function filterCities(era) {
     }
 }
 
-function removeWithTimeout(layer) {
-    setTimeout(() => map.removeLayer(layer), 10);
-}
-
 function reorderCities(era) {
     let c = {};
     for (let name in citiesLayer.cities) {
@@ -180,16 +166,7 @@ function reorderCities(era) {
 }
 
 // Layer Control Handling
-if (map.hasLayer(baseMap) && storage.defaultOverlay) {
-    // The layer is already in initialLayers, so we just need to sync the filter and UI
-    let era = parseInt(storage.defaultOverlay.split(" ")[0]);
-    filterCities(era);
-}
-if (!map.hasLayer(officialMap) && storage.latlngOverlay) {
-    latlngLayer.addTo(map);
-}
-
-const overlayMaps = storage.baseLayer === "Compile Map (dynamic)" ? { ...mutuallyExclusiveOverlays } : {};
+const overlayMaps = (storage.baseLayer === "Compile Map (dynamic)") ? { ...mutuallyExclusiveOverlays } : {};
 const layerControl = L.control.layers(baseMaps, overlayMaps, {
     collapsed: false,
     sortLayers: true,
@@ -202,10 +179,9 @@ const layerControl = L.control.layers(baseMaps, overlayMaps, {
 layerControl._container.classList.add("overlays");
 
 const otherOverlays = { "Lat/Long lines": latlngLayer };
-let otherOverlaysControl = L.control.layers(null, otherOverlays, { collapsed: false }).addTo(map);
+let otherOverlaysControl = L.control.layers(null, otherOverlays, { collapsed: false });
 
 function updateOverlayUI() {
-    // Slight delay to ensure Leaflet has updated the control's inner HTML
     setTimeout(() => {
         const overlayContainer = document.querySelector(".overlays");
         if (!overlayContainer) return;
@@ -221,29 +197,26 @@ function updateOverlayUI() {
             if (eraNames.includes(label)) {
                 const isActive = map.hasLayer(mutuallyExclusiveOverlays[label]);
                 input.checked = isActive; 
-                input.disabled = isActive; // Disable active to prevent unchecking
+                input.disabled = isActive; 
                 labelEl.style.cursor = isActive ? "default" : "pointer";
                 labelEl.style.opacity = "1"; 
                 
-                // Toggle highlighting class
                 if (isActive) {
                     labelEl.classList.add("active-overlay-label");
                 } else {
                     labelEl.classList.remove("active-overlay-label");
                 }
             }
-
         });
     }, 100);
 }
 
 let isInternalSwitch = false;
 
-map.on('overlayadd', function (event) {
+function handleOverlayAdd(event) {
     if (Object.keys(mutuallyExclusiveOverlays).includes(event.name)) {
         if (isInternalSwitch) return;
         
-        // Defer removals to next tick to avoid Leaflet race conditions
         setTimeout(() => {
             isInternalSwitch = true;
             try {
@@ -257,66 +230,99 @@ map.on('overlayadd', function (event) {
                 filterCities(era);
                 if (era) reorderCities(era);
                 updateOverlayUI();
+                localStorage.setItem("storage", JSON.stringify(storage));
             } finally {
                 isInternalSwitch = false;
             }
         }, 0);
     }
-    if (event.name === "Lat/Long lines") storage.latlngOverlay = true;
-    localStorage.setItem("storage", JSON.stringify(storage));
-});
-
-map.on('overlayremove', function (event) {
-    if (isInternalSwitch) return;
     
-    // Ignore unchecking of era overlays (checkbox is disabled, but Leaflet logic might still trigger)
+    if (event.name === "Lat/Long lines") {
+        storage.latlngOverlay = true;
+        localStorage.setItem("storage", JSON.stringify(storage));
+    }
+}
+
+function handleOverlayRemove(event) {
+    if (isInternalSwitch) return;
     if (Object.keys(mutuallyExclusiveOverlays).includes(event.name)) {
         event.layer.addTo(map);
     }
-    
-    if (event.name === "Lat/Long lines") storage.latlngOverlay = false;
-    localStorage.setItem("storage", JSON.stringify(storage));
-});
-
-// Final Sync for initial load
-if (storage.defaultOverlay) {
-    let era = parseInt(storage.defaultOverlay.split(" ")[0]);
-    filterCities(era);
+    if (event.name === "Lat/Long lines") {
+        storage.latlngOverlay = false;
+        localStorage.setItem("storage", JSON.stringify(storage));
+    }
 }
-updateOverlayUI();
+
+map.on('overlayadd', handleOverlayAdd);
+map.on('overlayremove', handleOverlayRemove);
 
 let lastBaseLayer = baseMaps[storage.baseLayer];
 map.on('baselayerchange', function (event) {
-    if (event.layer === officialMap) {
-        storage.latlngOverlay = map.hasLayer(latlngLayer);
-        if (map.hasLayer(latlngLayer)) removeWithTimeout(latlngLayer);
-        map.removeControl(otherOverlaysControl);
-    }
-    if (lastBaseLayer === baseMap) {
-        for (let o in mutuallyExclusiveOverlays) {
-            if (map.hasLayer(mutuallyExclusiveOverlays[o])) storage.defaultOverlay = o;
-            removeWithTimeout(mutuallyExclusiveOverlays[o]);
-            layerControl.removeLayer(mutuallyExclusiveOverlays[o]);
+    const isOfficial = event.layer === officialMap;
+    const isDynamic = event.layer === baseMap;
+
+    // Use a small timeout for removals to avoid Leaflet race conditions during transition
+    setTimeout(() => {
+        if (isOfficial) {
+            if (map.hasLayer(latlngLayer)) map.removeLayer(latlngLayer);
+            try { map.removeControl(otherOverlaysControl); } catch(e) {}
+            if (map.hasLayer(citiesLayer)) map.removeLayer(citiesLayer);
+        } else {
+            otherOverlaysControl.addTo(map);
+            if (storage.latlngOverlay && !map.hasLayer(latlngLayer)) map.addLayer(latlngLayer);
+            if (!map.hasLayer(citiesLayer)) map.addLayer(citiesLayer);
         }
-    }
-    if (event.layer === baseMap && lastBaseLayer) {
-        if (storage.defaultOverlay) map.addLayer(mutuallyExclusiveOverlays[storage.defaultOverlay]);
-        for (let o in mutuallyExclusiveOverlays) layerControl.addOverlay(mutuallyExclusiveOverlays[o], o);
-        updateOverlayUI();
-    }
-    if (lastBaseLayer === officialMap) {
-        if (storage.latlngOverlay) map.addLayer(latlngLayer);
-        otherOverlaysControl.addTo(map);
-    }
-    lastBaseLayer = event.layer;
-    storage.baseLayer = Object.keys(baseMaps).find(key => baseMaps[key] === lastBaseLayer);
-    
-    // Refresh city filter when base layer changes (e.g. to hide labels on Static maps)
-    let era = parseInt(storage.defaultOverlay.split(" ")[0]);
-    filterCities(era);
-    
-    localStorage.setItem("storage", JSON.stringify(storage));
+
+        if (lastBaseLayer === baseMap) {
+            for (let o in mutuallyExclusiveOverlays) {
+                if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
+                layerControl.removeLayer(mutuallyExclusiveOverlays[o]);
+            }
+        }
+
+        if (isDynamic) {
+            if (storage.defaultOverlay) map.addLayer(mutuallyExclusiveOverlays[storage.defaultOverlay]);
+            for (let o in mutuallyExclusiveOverlays) layerControl.addOverlay(mutuallyExclusiveOverlays[o], o);
+            updateOverlayUI();
+        }
+
+        lastBaseLayer = event.layer;
+        storage.baseLayer = Object.keys(baseMaps).find(key => baseMaps[key] === lastBaseLayer);
+        
+        let era = parseInt(storage.defaultOverlay.split(" ")[0]);
+        filterCities(era);
+        localStorage.setItem("storage", JSON.stringify(storage));
+    }, 0);
 });
+
+// INITIAL SETUP - Manually add layers to avoid race conditions during map constructor
+const setupInitialState = () => {
+    const startLayer = baseMaps[storage.baseLayer];
+    startLayer.addTo(map);
+    
+    if (storage.baseLayer === "Compile Map (dynamic)") {
+        if (storage.defaultOverlay) mutuallyExclusiveOverlays[storage.defaultOverlay].addTo(map);
+    }
+    
+    if (storage.baseLayer !== "Official Map") {
+        citiesLayer.addTo(map);
+        otherOverlaysControl.addTo(map);
+        if (storage.latlngOverlay) latlngLayer.addTo(map);
+    }
+    
+    map.setView(L.latLng(24, -78), 3);
+    
+    let era = parseInt(storage.defaultOverlay.split(" ")[0]);
+    
+    // Safety sync after elements render
+    setTimeout(() => {
+        filterCities(era);
+        updateOverlayUI();
+    }, 500);
+};
+
+setupInitialState();
 
 // Search Control
 const normalizeSearch = function (text, records) {
@@ -491,7 +497,7 @@ L.Control.Markers = L.Control.extend({
                 addDialog.style.display = "unset";
                 addBtn.innerText = "x";
                 map.on("click", this._addOnMapClick, this);
-                citiesLayer.hidePoints(true);
+                if (citiesLayer.hidePoints) citiesLayer.hidePoints(true);
                 map.getPane("overlayPane").classList.add("cursor-add-shortcut");
             } else {
                 this._cleanupAdd();
@@ -511,7 +517,7 @@ L.Control.Markers = L.Control.extend({
     },
     _cleanupAdd: function() {
         map.off("click", this._addOnMapClick, this);
-        citiesLayer.hidePoints(false);
+        if (citiesLayer.hidePoints) citiesLayer.hidePoints(false);
         map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
         this._addDialog.style.display = "none";
         this._container.querySelector(".leaflet-control-markers-addicon").innerText = "+";
@@ -533,7 +539,7 @@ L.Control.Markers = L.Control.extend({
     _update: function () {
         L.DomUtil.empty(this._markersList);
         this._markerGroup.eachLayer(layer => {
-            const item = L.DomUtil.create('label', '', this._markersList);
+            const item = L. DomUtil.create('label', '', this._markersList);
             const input = L.DomUtil.create('input', 'leaflet-control-markers-selector', item);
             input.type = 'checkbox';
             input.checked = map.hasLayer(layer);
@@ -559,29 +565,19 @@ L.control.markers = function (markerGroup, opts) {
 
 setTimeout(() => L.control.markers(markerGroup, { collapsed: false }).addTo(map), 10);
 
-map.setView(L.latLng(24, -78), 3);
-
 // Dynamic Label Scaling
 function updateLabelScale() {
     const zoom = map.getZoom();
-
-    // Continuous function: offsetScale ranges from 0.1 (z2) to 6.0 (z6)
-    // and doubles between z5 and z6.
     const offsetScale = 0.1 * Math.pow(zoom / 2, 3.75);
-
-    // Linear font scaling from ~0.7 to 1.9
     const fontScale = 0.3 * zoom + 0.1;
-
     const root = document.documentElement;
     root.style.setProperty('--city-label-scale', fontScale);
     root.style.setProperty('--city-label-offset-scale', offsetScale);
 }
 
-
 map.on('zoom', updateLabelScale);
 map.on('zoomend', () => {
     updateOverlayUI();
-    // Re-filter just in case Leaflet re-rendered marker elements
     let era = parseInt(storage.defaultOverlay.split(" ")[0]);
     filterCities(era);
 });
