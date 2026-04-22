@@ -262,37 +262,46 @@ map.on('baselayerchange', function (event) {
     const isOfficial = event.layer === officialMap;
     const isDynamic = event.layer === baseMap;
 
-    // Use a small timeout for removals to avoid Leaflet race conditions during transition
+    // Use a small timeout to avoid Leaflet race conditions during transition
     setTimeout(() => {
-        if (isOfficial) {
-            if (map.hasLayer(latlngLayer)) map.removeLayer(latlngLayer);
-            try { map.removeControl(otherOverlaysControl); } catch(e) {}
-            if (map.hasLayer(citiesLayer)) map.removeLayer(citiesLayer);
-        } else {
-            otherOverlaysControl.addTo(map);
-            if (storage.latlngOverlay && !map.hasLayer(latlngLayer)) map.addLayer(latlngLayer);
-            if (!map.hasLayer(citiesLayer)) map.addLayer(citiesLayer);
-        }
-
-        if (lastBaseLayer === baseMap) {
-            for (let o in mutuallyExclusiveOverlays) {
-                if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
-                layerControl.removeLayer(mutuallyExclusiveOverlays[o]);
+        isInternalSwitch = true;
+        try {
+            if (isOfficial) {
+                // Remove era overlays immediately
+                for (let o in mutuallyExclusiveOverlays) {
+                    if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
+                }
+                if (map.hasLayer(latlngLayer)) map.removeLayer(latlngLayer);
+                try { map.removeControl(otherOverlaysControl); } catch(e) {}
+                if (map.hasLayer(citiesLayer)) map.removeLayer(citiesLayer);
+            } else {
+                otherOverlaysControl.addTo(map);
+                if (storage.latlngOverlay && !map.hasLayer(latlngLayer)) map.addLayer(latlngLayer);
+                if (!map.hasLayer(citiesLayer)) map.addLayer(citiesLayer);
             }
-        }
 
-        if (isDynamic) {
-            if (storage.defaultOverlay) map.addLayer(mutuallyExclusiveOverlays[storage.defaultOverlay]);
-            for (let o in mutuallyExclusiveOverlays) layerControl.addOverlay(mutuallyExclusiveOverlays[o], o);
-            updateOverlayUI();
-        }
+            if (lastBaseLayer === baseMap) {
+                for (let o in mutuallyExclusiveOverlays) {
+                    if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
+                    layerControl.removeLayer(mutuallyExclusiveOverlays[o]);
+                }
+            }
 
-        lastBaseLayer = event.layer;
-        storage.baseLayer = Object.keys(baseMaps).find(key => baseMaps[key] === lastBaseLayer);
-        
-        let era = parseInt(storage.defaultOverlay.split(" ")[0]);
-        filterCities(era);
-        localStorage.setItem("storage", JSON.stringify(storage));
+            if (isDynamic) {
+                if (storage.defaultOverlay) map.addLayer(mutuallyExclusiveOverlays[storage.defaultOverlay]);
+                for (let o in mutuallyExclusiveOverlays) layerControl.addOverlay(mutuallyExclusiveOverlays[o], o);
+                updateOverlayUI();
+            }
+
+            lastBaseLayer = event.layer;
+            storage.baseLayer = Object.keys(baseMaps).find(key => baseMaps[key] === lastBaseLayer);
+            
+            let era = parseInt(storage.defaultOverlay.split(" ")[0]);
+            filterCities(era);
+            localStorage.setItem("storage", JSON.stringify(storage));
+        } finally {
+            isInternalSwitch = false;
+        }
     }, 0);
 });
 
