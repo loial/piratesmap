@@ -189,7 +189,7 @@ if (!map.hasLayer(officialMap) && storage.latlngOverlay) {
     latlngLayer.addTo(map);
 }
 
-const overlayMaps = { ...mutuallyExclusiveOverlays };
+const overlayMaps = storage.baseLayer === "Compile Map (dynamic)" ? { ...mutuallyExclusiveOverlays } : {};
 const layerControl = L.control.layers(baseMaps, overlayMaps, {
     collapsed: false,
     sortLayers: true,
