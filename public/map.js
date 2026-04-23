@@ -57,23 +57,25 @@ const baseMaps = {
 };
 
 // Global State / Storage
+const storageDefaults = {
+    baseLayer: "Compile Map (dynamic)",
+    defaultOverlay: "All cities (all time periods)",
+    latlngOverlay: true,
+    usePiratesFont: true
+};
+
 let storage = localStorage.getItem("storage");
 if (storage) {
     storage = JSON.parse(storage);
+    // Ensure new properties exist in old storage objects
+    storage = Object.assign({}, storageDefaults, storage);
+    // Clean up obsolete properties
+    const keysToKeep = Object.keys(storageDefaults);
+    Object.keys(storage).forEach(key => {
+        if (!keysToKeep.includes(key)) delete storage[key];
+    });
 } else {
-    storage = {
-        baseLayer: "Compile Map (dynamic)",
-        defaultOverlay: "All cities (all time periods)",
-        latlngOverlay: true,
-        treasure: null,
-        inca: null,
-        evil: null,
-        missionFrom: null,
-        missionTo: null,
-        fleet: null,
-        train: null,
-        usePiratesFont: true
-    };
+    storage = { ...storageDefaults };
 }
 
 // Apply initial font state
