@@ -40,16 +40,6 @@ const mutuallyExclusiveOverlays = {
     "1680 - Pirates' Sunset": L.imageOverlay('map/PiratesMapOverlay1680NoLabel.png', mapBounds),
 };
 
-const latlngLayer = L.latlngGraticule({
-    font: "12px piratesFont",
-    showLabel: true,
-    dashArray: [1, 1],
-    zoomInterval: {
-        latitude: [{ start: 1, end: 10, interval: 1 }],
-        longitude: [{ start: 1, end: 10, interval: 2 }]
-    }
-});
-
 const baseMaps = {
     "Official Map": officialMap,
     "Compiled Map (Full, static)": compiledMap,
@@ -77,6 +67,19 @@ if (storage) {
 } else {
     storage = { ...storageDefaults };
 }
+
+// Initialize Lat/Lon layer AFTER storage is loaded
+const latlngLayer = L.latlngGraticule({
+    font: storage.usePiratesFont ? "12px piratesFont" : '',
+    showLabel: true,
+    dashArray: [1, 1],
+    zoomInterval: {
+        latitude: [{ start: 1, end: 10, interval: 1 }],
+        longitude: [{ start: 1, end: 10, interval: 2 }]
+    }
+});
+
+setTimeout(() => map.fire('viewreset'), 100);// Force graticule re-render
 
 // Apply initial font state
 document.body.classList.toggle('standard-font', !storage.usePiratesFont);
@@ -369,6 +372,11 @@ L.Control.FontToggle = L.Control.extend({
         L.DomEvent.on(checkbox, 'change', (e) => {
             storage.usePiratesFont = e.target.checked;
             document.body.classList.toggle('standard-font', !storage.usePiratesFont);
+            
+            // Sync Lat/Lon Graticule Font
+            latlngLayer.options.font = storage.usePiratesFont ? "12px piratesFont" : null;
+            setTimeout(() => map.fire('viewreset'), 100);// Force graticule re-render
+            
             localStorage.setItem("storage", JSON.stringify(storage));
         });
 
