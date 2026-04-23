@@ -178,16 +178,64 @@ body {
 
 .leaflet-control-markers-header > div:last-child {
     float: right;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+
+.leaflet-control-markers-analyzeicon {
+    font-size: 18px;
     cursor: pointer;
 }
 
 .leaflet-control-markers-addicon {
-    font-size:large
+    position: relative;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    display: inline-block;
+}
+
+/* Base style for the two bars that form + or x */
+.leaflet-control-markers-addicon::before,
+.leaflet-control-markers-addicon::after {
+    content: '';
+    position: absolute;
+    background-color: #333;
+    transition: transform 0.2s ease-in-out;
+}
+
+/* Horizontal bar */
+.leaflet-control-markers-addicon::before {
+    top: 8px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+}
+
+/* Vertical bar */
+.leaflet-control-markers-addicon::after {
+    top: 0;
+    left: 8px;
+    width: 2px;
+    height: 100%;
+}
+
+/* State: Open (Cross symbol) */
+.leaflet-control-markers-addicon.is-open::before {
+    transform: rotate(45deg);
+}
+.leaflet-control-markers-addicon.is-open::after {
+    transform: rotate(45deg);
 }
 
 
 .leaflet-control-markers-add-dialog {
     display: none;
+    width: 100%; /* Force wrap below icons */
+    margin-top: 10px;
 }
 
 .leaflet-control-markers-add-dialog-info {

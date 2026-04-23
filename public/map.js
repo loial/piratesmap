@@ -40,6 +40,16 @@ const mutuallyExclusiveOverlays = {
     "1680 - Pirates' Sunset": L.imageOverlay('map/PiratesMapOverlay1680NoLabel.png', mapBounds),
 };
 
+const latlngLayer = L.latlngGraticule({
+    font: "12px piratesFont",
+    showLabel: true,
+    dashArray: [1, 1],
+    zoomInterval: {
+        latitude: [{ start: 1, end: 10, interval: 1 }],
+        longitude: [{ start: 1, end: 10, interval: 2 }]
+    }
+});
+
 const baseMaps = {
     "Official Map": officialMap,
     "Compiled Map (Full, static)": compiledMap,
@@ -69,7 +79,7 @@ if (storage) {
 }
 
 // Initialize Lat/Lon layer AFTER storage is loaded
-const latlngLayer = L.latlngGraticule({
+const latlngLayerInstance = L.latlngGraticule({
     font: storage.usePiratesFont ? "12px piratesFont" : '',
     showLabel: true,
     dashArray: [1, 1],
@@ -78,8 +88,6 @@ const latlngLayer = L.latlngGraticule({
         longitude: [{ start: 1, end: 10, interval: 2 }]
     }
 });
-
-setTimeout(() => map.fire('viewreset'), 100);// Force graticule re-render
 
 // Apply initial font state
 document.body.classList.toggle('standard-font', !storage.usePiratesFont);
@@ -189,7 +197,7 @@ const layerControl = L.control.layers(baseMaps, overlayMaps, {
 }).addTo(map);
 layerControl._container.classList.add("overlays");
 
-const otherOverlays = { "Lat/Long lines": latlngLayer };
+const otherOverlays = { "Lat/Long lines": latlngLayerInstance };
 let otherOverlaysControl = L.control.layers(null, otherOverlays, { collapsed: false });
 
 function updateOverlayUI() {
@@ -282,11 +290,11 @@ map.on('baselayerchange', function (event) {
                 for (let o in mutuallyExclusiveOverlays) {
                     if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
                 }
-                if (map.hasLayer(latlngLayer)) map.removeLayer(latlngLayer);
+                if (map.hasLayer(latlngLayerInstance)) map.removeLayer(latlngLayerInstance);
                 try { map.removeControl(otherOverlaysControl); } catch(e) {}
             } else {
                 otherOverlaysControl.addTo(map);
-                if (storage.latlngOverlay && !map.hasLayer(latlngLayer)) map.addLayer(latlngLayer);
+                if (storage.latlngOverlay && !map.hasLayer(latlngLayerInstance)) map.addLayer(latlngLayerInstance);
             }
 
             // Always ensure city markers are on the map for search/info
@@ -330,7 +338,7 @@ const setupInitialState = () => {
     if (storage.baseLayer !== "Official Map") {
         citiesLayer.addTo(map);
         otherOverlaysControl.addTo(map);
-        if (storage.latlngOverlay) latlngLayer.addTo(map);
+        if (storage.latlngOverlay) latlngLayerInstance.addTo(map);
     }
     
     map.setView(L.latLng(24, -78), 3);
@@ -341,6 +349,8 @@ const setupInitialState = () => {
     setTimeout(() => {
         filterCities(era);
         updateOverlayUI();
+        // Delayed graticule refresh
+        setTimeout(() => map.fire('viewreset'), 100);
     }, 500);
 };
 
@@ -374,7 +384,7 @@ L.Control.FontToggle = L.Control.extend({
             document.body.classList.toggle('standard-font', !storage.usePiratesFont);
             
             // Sync Lat/Lon Graticule Font
-            latlngLayer.options.font = storage.usePiratesFont ? "12px piratesFont" : null;
+            latlngLayerInstance.options.font = storage.usePiratesFont ? "12px piratesFont" : '';
             setTimeout(() => map.fire('viewreset'), 100);// Force graticule re-render
             
             localStorage.setItem("storage", JSON.stringify(storage));
@@ -536,10 +546,10 @@ L.Control.Markers = L.Control.extend({
         
         const analyzeIcon = L.DomUtil.create('span', className + "-analyzeicon", actionDiv);
         analyzeIcon.innerText = "🗺️";
+        analyzeIcon.title = "Get marker from map piece";
         analyzeIcon.onclick = () => typeof dialog === 'function' ? dialog() : console.log("Analyze script not loaded");
         
         const addBtn = L.DomUtil.create('span', className + "-addicon", actionDiv);
-        addBtn.innerText = '+';
 
         const addDialog = this._addDialog = L.DomUtil.create('div', className + "-add-dialog", actionDiv);
         addDialog.innerHTML = `
@@ -556,9 +566,9 @@ L.Control.Markers = L.Control.extend({
         `;
 
         addBtn.onclick = () => {
-            if (addBtn.innerText === "+") {
+            if (!addBtn.classList.contains("is-open")) {
                 addDialog.style.display = "unset";
-                addBtn.innerText = "x";
+                addBtn.classList.add("is-open");
                 map.on("click", this._addOnMapClick, this);
                 if (citiesLayer.hidePoints) citiesLayer.hidePoints(true);
                 map.getPane("overlayPane").classList.add("cursor-add-shortcut");
@@ -583,7 +593,7 @@ L.Control.Markers = L.Control.extend({
         if (citiesLayer.hidePoints) citiesLayer.hidePoints(false);
         map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
         this._addDialog.style.display = "none";
-        this._container.querySelector(".leaflet-control-markers-addicon").innerText = "+";
+        this._container.querySelector(".leaflet-control-markers-addicon").classList.remove("is-open");
     },
     _addOnMapClick: function (e) {
         const type = this._addDialog.querySelector("select").value;
