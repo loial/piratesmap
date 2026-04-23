@@ -71,9 +71,13 @@ if (storage) {
         missionFrom: null,
         missionTo: null,
         fleet: null,
-        train: null
+        train: null,
+        usePiratesFont: true
     };
 }
+
+// Apply initial font state
+document.body.classList.toggle('standard-font', !storage.usePiratesFont);
 
 // Create map with NO layers initially to prevent race conditions in listeners
 const map = L.map('map', {
@@ -332,6 +336,42 @@ const setupInitialState = () => {
 };
 
 setupInitialState();
+
+// Font Toggle Control
+L.Control.FontToggle = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd: function() {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+        container.style.backgroundColor = 'white';
+        container.style.padding = '5px';
+        container.style.cursor = 'pointer';
+
+        const label = L.DomUtil.create('label', '', container);
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '5px';
+        label.style.fontSize = '12px';
+        label.style.color = '#333';
+        label.style.margin = '0';
+
+        const checkbox = L.DomUtil.create('input', '', label);
+        checkbox.type = 'checkbox';
+        checkbox.checked = storage.usePiratesFont;
+
+        L.DomUtil.create('span', '', label).innerText = 'Pirates Font';
+
+        L.DomEvent.on(checkbox, 'change', (e) => {
+            storage.usePiratesFont = e.target.checked;
+            document.body.classList.toggle('standard-font', !storage.usePiratesFont);
+            localStorage.setItem("storage", JSON.stringify(storage));
+        });
+
+        L.DomEvent.disableClickPropagation(container);
+        return container;
+    }
+});
+
+new L.Control.FontToggle().addTo(map);
 
 // Search Control
 const normalizeSearch = function (text, records) {

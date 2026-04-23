@@ -12,6 +12,15 @@ input[type='text'].search-input,
     font-family: piratesFont; /* use font */
 }
 
+/* Fallback font override */
+body.standard-font,
+body.standard-font .leaflet-container,
+body.standard-font input[type='text'].search-input,
+body.standard-font .city-label-inner,
+body.standard-font #dlgAnalyze {
+    font-family: Verdana, sans-serif !important;
+}
+
 :root {
     --city-label-scale: 1;
     --city-label-offset-scale: 1;
