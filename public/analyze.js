@@ -174,12 +174,24 @@ function baseMapPixelToLatLng(x, y) {
 }
 
 if (!isNode) {
+    let analyzeDialog = null;
+
     window.dialog = () => {
-        let dlg = document.getElementById('dlgAnalyze');
-        if (!dlg) {
-            dlg = L.DomUtil.create("dialog", null, document.body);
-            dlg.id = "dlgAnalyze";
-            dlg.innerHTML = `
+        if (!analyzeDialog) {
+            analyzeDialog = L.control.dialog({
+                size: [480, 550],
+                minSize: [400, 400],
+                maxSize: [800, 800],
+                anchor: [50, 50],
+                position: 'topleft',
+                initOpen: false
+            }).addTo(map);
+
+            const wrapper = L.DomUtil.create('div');
+            wrapper.id = "dlgAnalyze";
+            const content = L.DomUtil.create('div', 'analyze-dialog-content', wrapper);
+            content.style.cssText = "padding: 10px;";
+            content.innerHTML = `
 <style>
     @keyframes analyze-spin { to { transform: rotate(360deg); } }
     .analyze-spinner { 
@@ -197,58 +209,73 @@ if (!isNode) {
     .status-summary:hover { background: #e5e5e5; }
     .status-history { 
         display: block; padding: 10px 15px; white-space: pre-wrap; font-size: 12px; 
-        max-height: 150px; overflow-y: auto; background: #fafafa; border: 1px solid #ddd; border-top: none;
+        max-height: 120px; overflow-y: auto; background: #fafafa; border: 1px solid #ddd; border-top: none;
+    }
+    #analyzeCanvas {
+        width: 100%;
+        height: 200px;
+        object-fit: contain;
+        border: 1px solid #999;
+        display: block;
+        margin-bottom: 15px;
+        background: #222;
     }
 </style>
-<div style="min-width: 450px; padding: 15px; font-family: sans-serif;">
-    <h2 style="margin-top: 0;">Map Analyzer</h2>
-    <p style="color: #666; margin-bottom: 20px;">Please upload a screenshot of a map fragment to identify its type and location.</p>
-    <canvas id="analyzeCanvas" style="max-width: 100%; height: auto; border: 1px solid #999; display: block; margin-bottom: 15px; background: #222;"></canvas>
-    <input id="fileInput" type="file" accept="image/*" style="margin-bottom: 15px; display: block; width: 100%;">
-    <button id="btnAnalyze" style="padding: 12px 24px; cursor: pointer; background: #0078d4; color: white; border: none; border-radius: 4px; width: 100%;">
-        Analyze Map Piece <span id="loader" class="analyze-spinner hidden"></span>
-    </button>
-    
-    <details id="statusDetails" style="margin: 20px 0;">
-        <summary id="statusCurrent" class="status-summary">Ready to analyze.</summary>
-        <code id="statusHistory" class="status-history"></code>
-    </details>
+<h2 style="margin-top: 0; font-size: 18px;">Map Analyzer</h2>
+<p style="color: #666; margin-bottom: 15px; font-size: 13px;">Upload a map fragment to identify its location.</p>
+<canvas id="analyzeCanvas"></canvas>
+<input id="fileInput" type="file" accept="image/*" style="margin-bottom: 15px; display: block; width: 100%; font-size: 12px;">
+<button id="btnAnalyze" style="padding: 10px; cursor: pointer; background: #0078d4; color: white; border: none; border-radius: 4px; width: 100%; font-weight: bold;">
+    Analyze Map Piece <span id="loader" class="analyze-spinner hidden"></span>
+</button>
 
-    <div id="resultBox" class="hidden" style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border: 1px solid #0078d4; border-radius: 4px; font-size: 14px;">
-    </div>
+<details id="statusDetails" style="margin: 15px 0;">
+    <summary id="statusCurrent" class="status-summary">Ready.</summary>
+    <code id="statusHistory" class="status-history"></code>
+</details>
 
-    <div style="text-align: right;"><button id="closeModal">Close</button></div>
-</div>`;
-            const fileInput = dlg.querySelector("#fileInput"); const canvas = dlg.querySelector("#analyzeCanvas");
-            const statusCurrent = dlg.querySelector("#statusCurrent"); const statusHistory = dlg.querySelector("#statusHistory");
-            const resultBox = dlg.querySelector("#resultBox");
+<div id="resultBox" class="hidden" style="margin-bottom: 15px; padding: 12px; background: #f0f7ff; border: 1px solid #0078d4; border-radius: 4px; font-size: 13px;">
+</div>
+`;
+            analyzeDialog.setContent(content);
+
+            const fileInput = content.querySelector("#fileInput"); 
+            const canvas = content.querySelector("#analyzeCanvas");
+            const statusCurrent = content.querySelector("#statusCurrent"); 
+            const statusHistory = content.querySelector("#statusHistory");
+            const resultBox = content.querySelector("#resultBox");
 
             fileInput.onchange = (e) => {
                 const file = e.target.files[0]; if (!file) return;
-                statusCurrent.innerText = "New file loaded. Ready to analyze.";
+                statusCurrent.innerText = "File loaded. Ready.";
                 statusHistory.innerText = "";
                 resultBox.innerHTML = ""; resultBox.classList.add("hidden");
-                
+
                 const reader = new FileReader(); reader.onload = async (ev) => {
                     const { Jimp } = await getJimp();
                     const image = await Jimp.read(ev.target.result);
-                    canvas.width = image.bitmap.width; canvas.height = image.bitmap.height;
+
+                    // Maintain internal resolution but display is capped by CSS
+                    canvas.width = image.bitmap.width; 
+                    canvas.height = image.bitmap.height;
+
                     const ctx = canvas.getContext('2d');
                     const imageData = ctx.createImageData(image.bitmap.width, image.bitmap.height);
-                    imageData.data.set(image.bitmap.data); ctx.putImageData(imageData, 0, 0);
+                    imageData.data.set(image.bitmap.data); 
+                    ctx.putImageData(imageData, 0, 0);
                 };
                 reader.readAsArrayBuffer(file);
             };
-            
-            dlg.querySelector("#btnAnalyze").onclick = async () => {
-                const btn = document.getElementById('btnAnalyze'), loader = document.getElementById('loader');
+
+            content.querySelector("#btnAnalyze").onclick = async () => {
+                const btn = content.querySelector('#btnAnalyze');
+                const loader = content.querySelector('#loader');
                 loader.classList.remove("hidden"); btn.disabled = true;
                 statusHistory.innerText = ""; resultBox.innerHTML = ""; resultBox.classList.add("hidden");
-                
+
                 let history = [];
                 const updateProgress = (msg) => {
                     statusCurrent.innerText = msg;
-                    // For history, we don't want to spam "Scanning... 10%, 11%, etc"
                     if (msg.startsWith("Scanning...") && history.length > 0 && history[history.length-1].startsWith("Scanning...")) {
                         history[history.length-1] = msg;
                     } else {
@@ -259,32 +286,36 @@ if (!isNode) {
                 };
 
                 try {
-                    const file = fileInput.files[0]; if (!file) throw new Error("Please select a file first.");
+                    const file = fileInput.files[0]; if (!file) throw new Error("Please select a file.");
                     const buffer = await file.arrayBuffer();
-                    updateProgress("Initializing analyzer...");
+                    updateProgress("Initializing...");
                     const result = await runAnalysis(buffer, updateProgress);
                     map.flyTo(result.location, 5);
-                    statusCurrent.innerText = "Analysis Complete.";
+                    statusCurrent.innerText = "Complete.";
                     resultBox.classList.remove("hidden");
                     resultBox.innerHTML = `
-                        <div style="font-weight: bold; color: #0078d4; margin-bottom: 8px; font-size: 16px;">Match Found!</div>
-                        <strong>Type:</strong> ${result.properties.description}<br>
+                        <div style="font-weight: bold; color: #0078d4; margin-bottom: 5px;">Match Found!</div>
+                        <strong>Type:</strong> ${result.properties.description || result.properties.type}<br>
                         <strong>Confidence:</strong> ${result.confidence.toFixed(1)}%<br>
                         <strong>Location:</strong> ${result.location.lat.toFixed(4)}, ${result.location.lng.toFixed(4)}
                     `;
-                    
-                    const importBtn = L.DomUtil.create("button", null, resultBox); 
-                    importBtn.innerText = "Import Marker to Map"; 
-                    importBtn.style.cssText = "display: block; margin-top: 12px; width: 100%; padding: 10px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px;";
-                    importBtn.onclick = () => { markerGroup.addData(result.feature); dlg.close(); map.flyTo(result.location, 5); };
+
+                    const importBtn = L.DomUtil.create("button", "result-import-button", resultBox); 
+                    importBtn.innerText = "Import Marker"; 
+                    importBtn.style.cssText = "display: block; margin-top: 10px; width: 100%; padding: 8px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px;";
+                    importBtn.onclick = () => { 
+                        markerGroup.addData(result.feature); 
+                        analyzeDialog.close(); 
+                        map.flyTo(result.location, 5); 
+                    };
                 } catch (e) { console.error(e); statusCurrent.innerText = "Error: " + e.message; }
                 finally { loader.classList.add("hidden"); btn.disabled = false; }
             };
-            dlg.querySelector("#closeModal").onclick = () => dlg.close();
         }
-        dlg.showModal();
+        analyzeDialog.open();
     };
-} else if (require.main === module) {
+}
+ else if (require.main === module) {
     const args = process.argv.slice(2);
     if (args.length === 0) { console.log("Usage: node public/analyze.js <path-to-map-piece.png>"); process.exit(1); }
     runAnalysis(args[0], (m) => console.log(`[Progress] ${m}`)).then(result => {

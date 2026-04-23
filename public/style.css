@@ -6,9 +6,8 @@
 .leaflet-container,
 input[type='text'].search-input,
 #dlgAnalyze,
-#dlgAnalyze button,
-#dlgAnalyze > div > h2,
-#dlgAnalyze > div > p{
+#btnAnalyze,
+.result-import-button{
     font-family: piratesFont; /* use font */
 }
 
@@ -16,9 +15,10 @@ input[type='text'].search-input,
 body.standard-font,
 body.standard-font .leaflet-container,
 body.standard-font input[type='text'].search-input,
-body.standard-font .city-label-inner,
-body.standard-font #dlgAnalyze {
-    font-family: Verdana, sans-serif !important;
+body.standard-font #dlgAnalyze,
+body.standard-font #btnAnalyze,
+body.standard-font .result-import-button {
+    font-family: Verdana, sans-serif;
 }
 
 :root {
@@ -284,17 +284,28 @@ body {
     background-image: url(images/search-icon.png);
 }
 
-/* Dialog Styles */
-#dlgAnalyze {
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    padding: 20px;
+/* Leaflet.Dialog CSS-only Icon Fallbacks (since FA is not loaded) */
+.leaflet-control-dialog-close::before {
+    content: '×';
+    font-weight: bold;
 }
 
-#mapPiece {
+.leaflet-control-dialog-grabber::before {
+    content: '✥';
+}
+
+.leaflet-control-dialog-resizer::before {
+    content: '⇲';
+}
+
+#analyzeCanvas {
+    width: 100%;
+    height: 180px;
+    object-fit: contain;
+    border: 1px solid #999;
     display: block;
-    margin: 10px 0;
-    max-width: 100%;
+    margin-bottom: 15px;
+    background: #222;
 }
 
 #info {
@@ -303,6 +314,8 @@ body {
     padding: 10px;
     margin: 10px 0;
     white-space: pre-wrap;
+    max-height: 100px;
+    overflow-y: auto;
 }
 
 /* Style for 'locked' checkboxes in the era overlay control only */
