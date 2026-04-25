@@ -161,8 +161,15 @@ body.base-static .leaflet-panel-layers-group:nth-child(2) {
     display: none;
 }
 
-/* Hide selectors for the Tools group (Group index 3: Base, Eras, Settings, Tools) */
-.leaflet-panel-layers-group:nth-child(4) .leaflet-panel-layers-selector {
+/* Hide selectors for groups that should act as buttons/lists (Tools and Markers) */
+.leaflet-panel-layers-group:nth-child(3) .leaflet-panel-layers-selector,
+.leaflet-panel-layers-group:nth-child(5) .leaflet-panel-layers-selector {
+    display: none;
+}
+
+/* Fallback: target by title if index shifts */
+.leaflet-panel-layers-group:has(.leaflet-panel-layers-title:contains("Tools")) .leaflet-panel-layers-selector,
+.leaflet-panel-layers-group:has(.leaflet-panel-layers-title:contains("Markers")) .leaflet-panel-layers-selector {
     display: none;
 }
 

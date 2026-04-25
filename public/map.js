@@ -505,7 +505,10 @@ function onMapClickForMarker(e) {
         properties: { type: type, description: desc },
         geometry: { type: "Point", coordinates: [e.latlng.lng, e.latlng.lat] }
     });
-    addMarkerControl.close();
+    
+    // Explicit cleanup
+    cleanupAddMarkerMode();
+    if (addMarkerControl) addMarkerControl.close();
 }
 
 function cleanupAddMarkerMode() {
