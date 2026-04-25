@@ -40,7 +40,7 @@ const mutuallyExclusiveOverlays = {
     "1680 - Pirates' Sunset": L.imageOverlay('map/PiratesMapOverlay1680NoLabel.png', mapBounds),
 };
 
-const latlngLayer = L.latlngGraticule({
+const latlngLayerInstance = L.latlngGraticule({
     font: "12px piratesFont",
     showLabel: true,
     dashArray: [1, 1],
@@ -78,16 +78,8 @@ if (storage) {
     storage = { ...storageDefaults };
 }
 
-// Initialize Lat/Lon layer AFTER storage is loaded
-const latlngLayerInstance = L.latlngGraticule({
-    font: storage.usePiratesFont ? "12px piratesFont" : '',
-    showLabel: true,
-    dashArray: [1, 1],
-    zoomInterval: {
-        latitude: [{ start: 1, end: 10, interval: 1 }],
-        longitude: [{ start: 1, end: 10, interval: 2 }]
-    }
-});
+// Update graticule font based on storage before any display
+latlngLayerInstance.options.font = storage.usePiratesFont ? "12px piratesFont" : '';
 
 // Apply initial font state
 document.body.classList.toggle('standard-font', !storage.usePiratesFont);
@@ -207,23 +199,23 @@ const panelOverlays = [
         }))
     },
     {
-        group: "Markers",
-        layers: [] // Populated dynamically below
-    },
-    {
-        group: "Tools",
-        layers: [
-            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon">➕</span>' },
-            { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon">🗺️</span>' },
-            { name: "Store All Markers", layer: L.layerGroup(), icon: '<span class="panel-icon">💾</span>' }
-        ]
-    },
-    {
         group: "Settings",
         layers: [
             { name: "Pirates Font", layer: L.layerGroup(), active: storage.usePiratesFont, icon: '<span class="panel-icon">🔤</span>' },
             { name: "Lat/Long lines", layer: latlngLayerInstance, active: storage.latlngOverlay, icon: '<span class="panel-icon">🌐</span>' }
         ]
+    },
+    {
+        group: "Tools",
+        layers: [
+            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon">➕</span>', selector: false },
+            { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon">🗺️</span>', selector: false },
+            { name: "Store All Markers", layer: L.layerGroup(), icon: '<span class="panel-icon">💾</span>', selector: false }
+        ]
+    },
+    {
+        group: "Markers",
+        layers: [] // Populated dynamically below
     }
 ];
 
@@ -462,46 +454,48 @@ markerGroup.on("popupopen", (e) => {
 });
 
 // Marker Add Dialog
-let addMarkerDialog = null;
+let addMarkerControl = null;
 
 function startAddMarkerMode() {
-    if (addMarkerDialog) {
-        cleanupAddMarkerMode();
-        return;
+    if (!addMarkerControl) {
+        addMarkerControl = L.control.dialog({
+            size: [300, 180],
+            minSize: [250, 150],
+            maxSize: [400, 300],
+            anchor: [100, 100],
+            position: 'topleft',
+            initOpen: false
+        }).addTo(map);
+
+        const content = L.DomUtil.create('div', 'leaflet-control-markers-add-dialog-floating');
+        content.style.padding = "10px";
+        content.innerHTML = `
+            <h3 style="margin-top:0; font-size: 14px;">Add New Marker</h3>
+            <form id="addMarkerForm">
+                <select id="markerType" style="width:100%; padding: 5px;">
+                    ${["treasure", "inca", "evil", "family", "fleet", "train", "missionsource", "missiontarget", "informant"]
+                        .map(t => `<option value="${t}">${t}</option>`).join('')}
+                </select>
+                <input id="markerDesc" type="text" placeholder="Description..." style="width:100%; margin-top:10px; padding: 5px;">
+                <div style="color:red; font-size:11px; margin-top:10px; font-weight: bold;">Click on map to place</div>
+            </form>
+        `;
+        addMarkerControl.setContent(content);
+        
+        // Leaflet.Dialog fires events on the map object, and the dialog instance is the event data
+        map.on('dialog:closed', (e) => {
+            if (e === addMarkerControl) cleanupAddMarkerMode();
+        });
     }
 
-    addMarkerDialog = L.DomUtil.create('div', 'leaflet-control-markers-add-dialog-inline');
-    addMarkerDialog.style.cssText = "padding: 10px; background: white; border: 1px solid #ccc; border-radius: 4px; margin-top: 5px;";
-    addMarkerDialog.innerHTML = `
-        <form>
-            <select style="width:100%">
-                ${["treasure", "inca", "evil", "family", "fleet", "train", "missionsource", "missiontarget", "informant"]
-                    .map(t => `<option value="${t}">${t}</option>`).join('')}
-            </select>
-            <input type="text" placeholder="Description..." style="width:100%; margin-top:5px;">
-            <div style="color:red; font-size:10px; margin-top:5px;">Click map to place marker</div>
-            <button type="button" id="btnCancelMarker" style="width:100%; margin-top:5px;">Cancel</button>
-            <button type="button" id="btnStoreMarkers" style="width:100%; margin-top:5px;">Store All Markers</button>
-        </form>
-    `;
-    
-    // Append to the panel container if open, or body
-    const container = document.querySelector('.leaflet-panel-layers-expanded') || document.body;
-    container.appendChild(addMarkerDialog);
-
+    addMarkerControl.open();
     map.on("click", onMapClickForMarker);
     map.getPane("overlayPane").classList.add("cursor-add-shortcut");
-    
-    addMarkerDialog.querySelector("#btnCancelMarker").onclick = cleanupAddMarkerMode;
-    addMarkerDialog.querySelector("#btnStoreMarkers").onclick = () => {
-        localStorage.setItem("markers", JSON.stringify(markerGroup.toGeoJSON()));
-        cleanupAddMarkerMode();
-    };
 }
 
 function onMapClickForMarker(e) {
-    const type = addMarkerDialog.querySelector("select").value;
-    const desc = addMarkerDialog.querySelector("input").value;
+    const type = document.getElementById("markerType").value;
+    const desc = document.getElementById("markerDesc").value;
     if (type !== "informant") {
         const old = markerGroup.getLayers().find(l => l.getProps().type === type);
         if (old) markerGroup.removeLayer(old);
@@ -511,16 +505,12 @@ function onMapClickForMarker(e) {
         properties: { type: type, description: desc },
         geometry: { type: "Point", coordinates: [e.latlng.lng, e.latlng.lat] }
     });
-    cleanupAddMarkerMode();
+    addMarkerControl.close();
 }
 
 function cleanupAddMarkerMode() {
     map.off("click", onMapClickForMarker);
     map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
-    if (addMarkerDialog && addMarkerDialog.parentNode) {
-        addMarkerDialog.parentNode.removeChild(addMarkerDialog);
-    }
-    addMarkerDialog = null;
 }
 
 // Dynamic Label Scaling
