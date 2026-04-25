@@ -199,11 +199,11 @@ const panelBaseLayers = [
 const panelOverlays = [
     {
         group: "Eras (Dynamic Map only)",
-        exclusive: true,
         layers: Object.keys(mutuallyExclusiveOverlays).map(name => ({
             name: name,
             layer: mutuallyExclusiveOverlays[name],
-            active: (storage.baseLayer === "Compile Map (dynamic)" && storage.defaultOverlay === name)
+            active: (storage.baseLayer === "Compile Map (dynamic)" && storage.defaultOverlay === name),
+            exclusiveGroup: "eras" // Native exclusivity for overlays
         }))
     },
     {
@@ -310,19 +310,14 @@ map.on('baselayerchange', function (event) {
         isInternalSwitch = true;
         try {
             if (isOfficial) {
-                for (let o in mutuallyExclusiveOverlays) {
-                    if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
-                }
+                // Leaflet-panel-layers manages its own layers, but we need to ensure
+                // internal state (labels, latlng) syncs with the base map.
                 if (map.hasLayer(latlngLayerInstance)) map.removeLayer(latlngLayerInstance);
             } else {
                 if (storage.latlngOverlay && !map.hasLayer(latlngLayerInstance)) map.addLayer(latlngLayerInstance);
             }
 
             if (!map.hasLayer(citiesLayer)) map.addLayer(citiesLayer);
-
-            if (isDynamic) {
-                if (storage.defaultOverlay) map.addLayer(mutuallyExclusiveOverlays[storage.defaultOverlay]);
-            }
 
             lastBaseLayer = event.layer;
             storage.baseLayer = Object.keys(baseMaps).find(key => baseMaps[key] === lastBaseLayer);
