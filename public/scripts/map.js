@@ -26,18 +26,18 @@ L.CRS.PiratesCRS = L.extend({}, L.CRS.Simple, {
 const mapBounds = [L.latLng(MAP_CONSTANTS.minLat, MAP_CONSTANTS.minLng), L.latLng(MAP_CONSTANTS.maxLat, MAP_CONSTANTS.maxLng)];
 
 // Layers
-const officialMap = L.imageOverlay('pirates_official_map.jpg', [L.latLng(30.500, -96.836), L.latLng(13.350, -56.836)]);
-const compiledMap = L.imageOverlay('map/PiratesMapFullRetro.png', mapBounds);
-const baseMap = L.imageOverlay('map/PiratesMapBase.png', mapBounds);
+const officialMap = L.imageOverlay('maps/pirates_official_map.jpg', [L.latLng(30.500, -96.836), L.latLng(13.350, -56.836)]);
+const compiledMap = L.imageOverlay('maps/PiratesMapFullRetro.png', mapBounds);
+const baseMap = L.imageOverlay('maps/PiratesMapBase.png', mapBounds);
 
 const mutuallyExclusiveOverlays = {
-    "All cities (all time periods)": L.imageOverlay('map/PiratesMapOverlayFullNoLabel.png', mapBounds),
-    "1560 - The Silver Empire": L.imageOverlay('map/PiratesMapOverlay1560NoLabel.png', mapBounds),
-    "1600 - Merchants and Smugglers": L.imageOverlay('map/PiratesMapOverlay1600NoLabel.png', mapBounds),
-    "1620 - The New Colonists": L.imageOverlay('map/PiratesMapOverlay1620NoLabel.png', mapBounds),
-    "1640 - War for Profit": L.imageOverlay('map/PiratesMapOverlay1640NoLabel.png', mapBounds),
-    "1660 - The Buccaneer Heroes": L.imageOverlay('map/PiratesMapOverlay1660NoLabel.png', mapBounds),
-    "1680 - Pirates' Sunset": L.imageOverlay('map/PiratesMapOverlay1680NoLabel.png', mapBounds),
+    "All cities (all time periods)": L.imageOverlay('maps/PiratesMapOverlayFullNoLabel.png', mapBounds),
+    "1560 - The Silver Empire": L.imageOverlay('maps/PiratesMapOverlay1560NoLabel.png', mapBounds),
+    "1600 - Merchants and Smugglers": L.imageOverlay('maps/PiratesMapOverlay1600NoLabel.png', mapBounds),
+    "1620 - The New Colonists": L.imageOverlay('maps/PiratesMapOverlay1620NoLabel.png', mapBounds),
+    "1640 - War for Profit": L.imageOverlay('maps/PiratesMapOverlay1640NoLabel.png', mapBounds),
+    "1660 - The Buccaneer Heroes": L.imageOverlay('maps/PiratesMapOverlay1660NoLabel.png', mapBounds),
+    "1680 - Pirates' Sunset": L.imageOverlay('maps/PiratesMapOverlay1680NoLabel.png', mapBounds),
 };
 
 const latlngLayerInstance = L.latlngGraticule({

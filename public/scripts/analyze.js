@@ -26,7 +26,7 @@ async function getJimp() {
 }
 
 const ANALYZER_CONFIG = {
-    masterMapUrl: isNode ? 'public/map/PiratesTreasureMapBase.png' : 'map/PiratesTreasureMapBase.png',
+    masterMapUrl: isNode ? 'public/maps/PiratesTreasureMapBase.png' : 'maps/PiratesTreasureMapBase.png',
     mapWidth: 5120,
     mapHeight: 3208,
     isLand: (r, g, b) => r > b + 10,
@@ -317,7 +317,7 @@ if (!isNode) {
 }
  else if (require.main === module) {
     const args = process.argv.slice(2);
-    if (args.length === 0) { console.log("Usage: node public/analyze.js <path-to-map-piece.png>"); process.exit(1); }
+    if (args.length === 0) { console.log("Usage: node public/scripts/analyze.js <path-to-map-piece.png>"); process.exit(1); }
     runAnalysis(args[0], (m) => console.log(`[Progress] ${m}`)).then(result => {
         const output = { metadata: { confidence: result.confidence.toFixed(1) + "%", pixels: result.pixels, type: result.properties.type, description: result.properties.description }, feature: result.feature };
         console.log(JSON.stringify(output, null, 2));

@@ -1,7 +1,7 @@
 /* PiratesMap Styles */
 @font-face {
     font-family: piratesFont; /* set name */
-    src: url(Pirates_Amiga.woff2); /* url of the font */
+    src: url(../fonts/Pirates_Amiga.woff2); /* url of the font */
 }
 .leaflet-container,
 input[type='text'].search-input,
@@ -195,18 +195,24 @@ body.base-static .leaflet-panel-layers-group:nth-child(2) {
     display: none;
 }
 
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	background-image: url(../images/marker-icon.png);
+}
+
+
 /* Leaflet-search icon overrides */
 .leaflet-control-search.search-load .search-input {
-    background-image: url(images/loader.gif);
+    background-image: url(../images/loader.gif);
 }
 .leaflet-control-search .search-cancel {
-    background-image: url(images/search-icon.png);
+    background-image: url(../images/search-icon.png);
 }
 .leaflet-control-search .search-button {
-    background-image: url(images/search-icon.png);
+    background-image: url(../images/search-icon.png);
 }
 .leaflet-control-search .search-button:hover {
-    background-image: url(images/search-icon.png);
+    background-image: url(../images/search-icon.png);
 }
 
 /* Leaflet.Dialog CSS-only Icon Fallbacks (since FA is not loaded) */
