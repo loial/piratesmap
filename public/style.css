@@ -161,16 +161,14 @@ body.base-static .leaflet-panel-layers-group:nth-child(2) {
     display: none;
 }
 
-/* Hide selectors for groups that should act as buttons/lists (Tools and Markers) */
-.leaflet-panel-layers-group:nth-child(3) .leaflet-panel-layers-selector,
-.leaflet-panel-layers-group:nth-child(5) .leaflet-panel-layers-selector {
-    display: none;
+/* Hide selectors for items containing a panel-icon (Tools, Settings, Markers) */
+.leaflet-panel-layers-item:has(.panel-icon) .leaflet-panel-layers-selector {
+    display: none !important;
 }
 
-/* Fallback: target by title if index shifts */
-.leaflet-panel-layers-group:has(.leaflet-panel-layers-title:contains("Tools")) .leaflet-panel-layers-selector,
-.leaflet-panel-layers-group:has(.leaflet-panel-layers-title:contains("Markers")) .leaflet-panel-layers-selector {
-    display: none;
+/* Specific override for Settings which SHOULD have checkboxes */
+.leaflet-panel-layers-group:nth-child(2) .leaflet-panel-layers-selector {
+    display: inline-block !important;
 }
 
 .leaflet-control-markers-add-dialog-floating h3 {

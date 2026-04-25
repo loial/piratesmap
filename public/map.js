@@ -208,9 +208,9 @@ const panelOverlays = [
     {
         group: "Tools",
         layers: [
-            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon">➕</span>', selector: false },
-            { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon">🗺️</span>', selector: false },
-            { name: "Store All Markers", layer: L.layerGroup(), icon: '<span class="panel-icon">💾</span>', selector: false }
+            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">➕</span>' },
+            { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">🗺️</span>' },
+            { name: "Store All Markers", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">💾</span>' }
         ]
     },
     {
@@ -437,7 +437,8 @@ markerGroup.on("layeradd", (e) => {
     panelControl.addOverlay({
         name: e.layer.getProps().description || e.layer.getProps().type,
         layer: e.layer,
-        group: "Markers"
+        group: "Markers",
+        icon: '<span class="panel-icon no-checkbox">📍</span>'
     });
 });
 
