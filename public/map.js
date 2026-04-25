@@ -184,10 +184,54 @@ function reorderCities(era) {
         });
 }
 
-// Layer Control Handling
-const overlayMaps = (storage.baseLayer === "Compile Map (dynamic)") ? { ...mutuallyExclusiveOverlays } : {};
-const layerControl = L.control.layers(baseMaps, overlayMaps, {
-    collapsed: false,
+// Panel Layers Configuration
+const panelBaseLayers = [
+    {
+        group: "Base Maps",
+        layers: [
+            { name: "Official Map", layer: officialMap, active: storage.baseLayer === "Official Map" },
+            { name: "Compiled Map (Full, static)", layer: compiledMap, active: storage.baseLayer === "Compiled Map (Full, static)" },
+            { name: "Compile Map (dynamic)", layer: baseMap, active: storage.baseLayer === "Compile Map (dynamic)" }
+        ]
+    }
+];
+
+const panelOverlays = [
+    {
+        group: "Eras (Dynamic Map only)",
+        exclusive: true,
+        layers: Object.keys(mutuallyExclusiveOverlays).map(name => ({
+            name: name,
+            layer: mutuallyExclusiveOverlays[name],
+            active: (storage.baseLayer === "Compile Map (dynamic)" && storage.defaultOverlay === name)
+        }))
+    },
+    {
+        group: "Markers",
+        layers: [] // Populated dynamically below
+    },
+    {
+        group: "Tools",
+        layers: [
+            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon">➕</span>' },
+            { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon">🗺️</span>' },
+            { name: "Store All Markers", layer: L.layerGroup(), icon: '<span class="panel-icon">💾</span>' }
+        ]
+    },
+    {
+        group: "Settings",
+        layers: [
+            { name: "Pirates Font", layer: L.layerGroup(), active: storage.usePiratesFont, icon: '<span class="panel-icon">🔤</span>' },
+            { name: "Lat/Long lines", layer: latlngLayerInstance, active: storage.latlngOverlay, icon: '<span class="panel-icon">🌐</span>' }
+        ]
+    }
+];
+
+const panelControl = L.control.panelLayers(panelBaseLayers, panelOverlays, {
+    compact: true,
+    collapsed: true,
+    collapsibleGroups: true,
+    position: 'topright',
     sortLayers: true,
     sortFunction: (a, b, nameA, nameB) => {
         if (nameA.startsWith("All cities")) return -1;
@@ -195,82 +239,63 @@ const layerControl = L.control.layers(baseMaps, overlayMaps, {
         return nameA.localeCompare(nameB);
     }
 }).addTo(map);
-layerControl._container.classList.add("overlays");
-
-const otherOverlays = { "Lat/Long lines": latlngLayerInstance };
-let otherOverlaysControl = L.control.layers(null, otherOverlays, { collapsed: false });
-
-function updateOverlayUI() {
-    setTimeout(() => {
-        const overlayContainer = document.querySelector(".overlays");
-        if (!overlayContainer) return;
-        
-        const inputs = overlayContainer.querySelectorAll("input");
-        const eraNames = Object.keys(mutuallyExclusiveOverlays);
-        
-        inputs.forEach(input => {
-            const labelEl = input.closest('label');
-            if (!labelEl) return;
-            const label = labelEl.textContent.trim();
-            
-            if (eraNames.includes(label)) {
-                const isActive = map.hasLayer(mutuallyExclusiveOverlays[label]);
-                input.checked = isActive; 
-                input.disabled = isActive; 
-                labelEl.style.cursor = isActive ? "default" : "pointer";
-                labelEl.style.opacity = "1"; 
-                
-                if (isActive) {
-                    labelEl.classList.add("active-overlay-label");
-                } else {
-                    labelEl.classList.remove("active-overlay-label");
-                }
-            }
-        });
-    }, 100);
-}
 
 let isInternalSwitch = false;
 
 function handleOverlayAdd(event) {
+    if (isInternalSwitch) return;
+    
+    // Era Overlays
     if (Object.keys(mutuallyExclusiveOverlays).includes(event.name)) {
-        if (isInternalSwitch) return;
-        
-        setTimeout(() => {
-            isInternalSwitch = true;
-            try {
-                storage.defaultOverlay = event.name;
-                for (let o in mutuallyExclusiveOverlays) {
-                    if (event.name !== o && map.hasLayer(mutuallyExclusiveOverlays[o])) {
-                        map.removeLayer(mutuallyExclusiveOverlays[o]);
-                    }
-                }
-                let era = parseInt(event.name.split(" ")[0]);
-                filterCities(era);
-                if (era) reorderCities(era);
-                updateOverlayUI();
-                localStorage.setItem("storage", JSON.stringify(storage));
-            } finally {
-                isInternalSwitch = false;
-            }
-        }, 0);
+        storage.defaultOverlay = event.name;
+        let era = parseInt(event.name.split(" ")[0]);
+        filterCities(era);
+        if (era) reorderCities(era);
     }
     
+    // Tools
+    if (event.name === "Add Marker") {
+        startAddMarkerMode();
+        setTimeout(() => map.removeLayer(event.layer), 100);
+    }
+    if (event.name === "Analyze Map Piece") {
+        if (typeof dialog === 'function') dialog();
+        setTimeout(() => map.removeLayer(event.layer), 100);
+    }
+    if (event.name === "Store All Markers") {
+        localStorage.setItem("markers", JSON.stringify(markerGroup.toGeoJSON()));
+        alert("Markers stored in persistent storage.");
+        setTimeout(() => map.removeLayer(event.layer), 100);
+    }
+
+    // Settings
+    if (event.name === "Pirates Font") {
+        storage.usePiratesFont = true;
+        updateFontState();
+    }
     if (event.name === "Lat/Long lines") {
         storage.latlngOverlay = true;
-        localStorage.setItem("storage", JSON.stringify(storage));
     }
+    localStorage.setItem("storage", JSON.stringify(storage));
 }
 
 function handleOverlayRemove(event) {
     if (isInternalSwitch) return;
-    if (Object.keys(mutuallyExclusiveOverlays).includes(event.name)) {
-        event.layer.addTo(map);
+    
+    if (event.name === "Pirates Font") {
+        storage.usePiratesFont = false;
+        updateFontState();
     }
     if (event.name === "Lat/Long lines") {
         storage.latlngOverlay = false;
-        localStorage.setItem("storage", JSON.stringify(storage));
     }
+    localStorage.setItem("storage", JSON.stringify(storage));
+}
+
+function updateFontState() {
+    document.body.classList.toggle('standard-font', !storage.usePiratesFont);
+    latlngLayerInstance.options.font = storage.usePiratesFont ? "12px piratesFont" : '';
+    setTimeout(() => map.fire('viewreset'), 100);
 }
 
 map.on('overlayadd', handleOverlayAdd);
@@ -281,42 +306,33 @@ map.on('baselayerchange', function (event) {
     const isOfficial = event.layer === officialMap;
     const isDynamic = event.layer === baseMap;
 
-    // Use a small timeout to avoid Leaflet race conditions during transition
     setTimeout(() => {
         isInternalSwitch = true;
         try {
             if (isOfficial) {
-                // Remove era overlays immediately
                 for (let o in mutuallyExclusiveOverlays) {
                     if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
                 }
                 if (map.hasLayer(latlngLayerInstance)) map.removeLayer(latlngLayerInstance);
-                try { map.removeControl(otherOverlaysControl); } catch(e) {}
             } else {
-                otherOverlaysControl.addTo(map);
                 if (storage.latlngOverlay && !map.hasLayer(latlngLayerInstance)) map.addLayer(latlngLayerInstance);
             }
 
-            // Always ensure city markers are on the map for search/info
             if (!map.hasLayer(citiesLayer)) map.addLayer(citiesLayer);
-
-
-            if (lastBaseLayer === baseMap) {
-                for (let o in mutuallyExclusiveOverlays) {
-                    if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
-                    layerControl.removeLayer(mutuallyExclusiveOverlays[o]);
-                }
-            }
 
             if (isDynamic) {
                 if (storage.defaultOverlay) map.addLayer(mutuallyExclusiveOverlays[storage.defaultOverlay]);
-                for (let o in mutuallyExclusiveOverlays) layerControl.addOverlay(mutuallyExclusiveOverlays[o], o);
-                updateOverlayUI();
             }
 
             lastBaseLayer = event.layer;
             storage.baseLayer = Object.keys(baseMaps).find(key => baseMaps[key] === lastBaseLayer);
             
+            // Toggle body classes for conditional UI visibility
+            document.body.classList.remove('base-official', 'base-static', 'base-dynamic');
+            if (isOfficial) document.body.classList.add('base-official');
+            else if (event.layer === compiledMap) document.body.classList.add('base-static');
+            else if (isDynamic) document.body.classList.add('base-dynamic');
+
             let era = parseInt(storage.defaultOverlay.split(" ")[0]);
             filterCities(era);
             localStorage.setItem("storage", JSON.stringify(storage));
@@ -326,76 +342,29 @@ map.on('baselayerchange', function (event) {
     }, 0);
 });
 
-// INITIAL SETUP - Manually add layers to avoid race conditions during map constructor
+// INITIAL SETUP
 const setupInitialState = () => {
-    const startLayer = baseMaps[storage.baseLayer];
-    startLayer.addTo(map);
-    
-    if (storage.baseLayer === "Compile Map (dynamic)") {
-        if (storage.defaultOverlay) mutuallyExclusiveOverlays[storage.defaultOverlay].addTo(map);
-    }
-    
     if (storage.baseLayer !== "Official Map") {
         citiesLayer.addTo(map);
-        otherOverlaysControl.addTo(map);
-        if (storage.latlngOverlay) latlngLayerInstance.addTo(map);
     }
     
+    // Initial body class
+    document.body.classList.remove('base-official', 'base-static', 'base-dynamic');
+    if (storage.baseLayer === "Official Map") document.body.classList.add('base-official');
+    else if (storage.baseLayer === "Compiled Map (Full, static)") document.body.classList.add('base-static');
+    else document.body.classList.add('base-dynamic');
+
     map.setView(L.latLng(24, -78), 3);
     
     let era = parseInt(storage.defaultOverlay.split(" ")[0]);
     
-    // Safety sync after elements render
     setTimeout(() => {
         filterCities(era);
-        updateOverlayUI();
-        // Delayed graticule refresh
         setTimeout(() => map.fire('viewreset'), 100);
     }, 500);
 };
 
 setupInitialState();
-
-// Font Toggle Control
-L.Control.FontToggle = L.Control.extend({
-    options: { position: 'topright' },
-    onAdd: function() {
-        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-        container.style.backgroundColor = 'white';
-        container.style.padding = '5px';
-        container.style.cursor = 'pointer';
-
-        const label = L.DomUtil.create('label', '', container);
-        label.style.display = 'flex';
-        label.style.alignItems = 'center';
-        label.style.gap = '5px';
-        label.style.fontSize = '12px';
-        label.style.color = '#333';
-        label.style.margin = '0';
-
-        const checkbox = L.DomUtil.create('input', '', label);
-        checkbox.type = 'checkbox';
-        checkbox.checked = storage.usePiratesFont;
-
-        L.DomUtil.create('span', '', label).innerText = 'Pirates Font';
-
-        L.DomEvent.on(checkbox, 'change', (e) => {
-            storage.usePiratesFont = e.target.checked;
-            document.body.classList.toggle('standard-font', !storage.usePiratesFont);
-            
-            // Sync Lat/Lon Graticule Font
-            latlngLayerInstance.options.font = storage.usePiratesFont ? "12px piratesFont" : '';
-            setTimeout(() => map.fire('viewreset'), 100);// Force graticule re-render
-            
-            localStorage.setItem("storage", JSON.stringify(storage));
-        });
-
-        L.DomEvent.disableClickPropagation(container);
-        return container;
-    }
-});
-
-new L.Control.FontToggle().addTo(map);
 
 // Search Control
 const normalizeSearch = function (text, records) {
@@ -476,167 +445,88 @@ const markerGroup = L.geoJSON(null, {
     }
 }).addTo(map);
 
+// Sync markerGroup with Panel
+markerGroup.on("layeradd", (e) => {
+    panelControl.addOverlay({
+        name: e.layer.getProps().description || e.layer.getProps().type,
+        layer: e.layer,
+        group: "Markers"
+    });
+});
+
+markerGroup.on("layerremove", (e) => {
+    panelControl.removeLayer(e.layer);
+});
+
 let storedMarkers = localStorage.getItem("markers");
 if (storedMarkers) markerGroup.addData(JSON.parse(storedMarkers));
 
 markerGroup.on("popupopen", (e) => {
-    e.popup._container.querySelector(".deletemarker").onclick = () => markerGroup.removeLayer(e.popup._source);
+    const delBtn = e.popup._container.querySelector(".deletemarker");
+    if (delBtn) delBtn.onclick = () => markerGroup.removeLayer(e.popup._source);
 });
 
-// Custom Marker Control
-L.Control.Markers = L.Control.extend({
-    options: { collapsed: true, position: 'topright' },
-    initialize: function (markerGroup, options) {
-        L.Util.setOptions(this, options);
-        this._markerGroup = markerGroup;
-    },
-    onAdd: function (map) {
-        this._initLayout();
-        this._update();
-        this._markerGroup.on("layeradd layerremove", this._update, this);
-        return this._container;
-    },
-    expand: function () {
-        L.DomUtil.addClass(this._container, 'leaflet-control-markers-expanded');
-        this._section.style.height = null;
-        const acceptableHeight = map.getSize().y - (this._container.offsetTop + 50);
-        if (acceptableHeight < this._section.clientHeight) {
-            L.DomUtil.addClass(this._section, 'leaflet-control-markers-scrollbar');
-            this._section.style.height = acceptableHeight + 'px';
-        } else {
-            L.DomUtil.removeClass(this._section, 'leaflet-control-markers-scrollbar');
-        }
-        return this;
-    },
-    collapse: function () {
-        L.DomUtil.removeClass(this._container, 'leaflet-control-markers-expanded');
-        return this;
-    },
-    _initLayout: function () {
-        const className = 'leaflet-control-markers';
-        const container = this._container = L.DomUtil.create('div', className);
-        L.DomEvent.disableClickPropagation(container);
-        L.DomEvent.disableScrollPropagation(container);
+// Marker Add Dialog
+let addMarkerDialog = null;
 
-        const section = this._section = L.DomUtil.create('section', className + '-list');
-        if (this.options.collapsed) {
-            map.on('click', this.collapse, this);
-            L.DomEvent.on(container, {
-                mouseenter: this.expand,
-                mouseleave: this.collapse
-            }, this);
-        }
-
-        const link = L.DomUtil.create('a', className + '-toggle', container);
-        link.href = '#';
-        link.title = 'Markers';
-        L.DomEvent.on(link, {
-            keydown: (e) => { if (e.keyCode === 13) this.expand(); },
-            click: (e) => {
-                L.DomEvent.preventDefault(e);
-                this.expand();
-            }
-        }, this);
-
-        const header = L.DomUtil.create('div', className + "-header", section);
-        const titleDiv = L.DomUtil.create('div', null, header);
-        titleDiv.innerHTML = '<b>Markers</b>';
-
-        const actionDiv = L.DomUtil.create('div', null, header);
-        
-        const analyzeIcon = L.DomUtil.create('span', className + "-analyzeicon", actionDiv);
-        analyzeIcon.innerText = "🗺️";
-        analyzeIcon.title = "Get marker from map piece";
-        analyzeIcon.onclick = () => typeof dialog === 'function' ? dialog() : console.log("Analyze script not loaded");
-        
-        const addBtn = L.DomUtil.create('span', className + "-addicon", actionDiv);
-
-        const addDialog = this._addDialog = L.DomUtil.create('div', className + "-add-dialog", actionDiv);
-        addDialog.innerHTML = `
-            <form>
-                <select>
-                    ${["treasure", "inca", "evil", "family", "fleet", "train", "missionsource", "missiontarget", "informant"]
-                        .map(t => `<option value="${t}">${t}</option>`).join('')}
-                </select>
-                <br/>
-                <input type="text" placeholder="Description...">
-                <br/>
-                <span class="${className}-add-dialog-info">Click on map to create marker</span>
-            </form>
-        `;
-
-        addBtn.onclick = () => {
-            if (!addBtn.classList.contains("is-open")) {
-                addDialog.style.display = "unset";
-                addBtn.classList.add("is-open");
-                map.on("click", this._addOnMapClick, this);
-                if (citiesLayer.hidePoints) citiesLayer.hidePoints(true);
-                map.getPane("overlayPane").classList.add("cursor-add-shortcut");
-            } else {
-                this._cleanupAdd();
-            }
-        };
-
-        this._markersList = L.DomUtil.create('div', className + '-markers', section);
-        const storeBtn = L.DomUtil.create('a', className + "-store", section);
-        storeBtn.innerText = "Store in persistent storage";
-        storeBtn.onclick = () => localStorage.setItem("markers", JSON.stringify(this._markerGroup.toGeoJSON()));
-        
-        container.appendChild(section);
-
-        if (!this.options.collapsed) {
-            this.expand();
-        }
-    },
-    _cleanupAdd: function() {
-        map.off("click", this._addOnMapClick, this);
-        if (citiesLayer.hidePoints) citiesLayer.hidePoints(false);
-        map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
-        this._addDialog.style.display = "none";
-        this._container.querySelector(".leaflet-control-markers-addicon").classList.remove("is-open");
-    },
-    _addOnMapClick: function (e) {
-        const type = this._addDialog.querySelector("select").value;
-        const desc = this._addDialog.querySelector("input").value;
-        if (type !== "informant") {
-            const old = this._markerGroup.getLayers().find(l => l.getProps().type === type);
-            if (old) this._markerGroup.removeLayer(old);
-        }
-        markerGroup.addData({
-            type: "Feature",
-            properties: { type: type, description: desc },
-            geometry: { type: "Point", coordinates: [e.latlng.lng, e.latlng.lat] }
-        });
-        this._cleanupAdd();
-    },
-    _update: function () {
-        L.DomUtil.empty(this._markersList);
-        this._markerGroup.eachLayer(layer => {
-            const item = L. DomUtil.create('label', '', this._markersList);
-            const input = L.DomUtil.create('input', 'leaflet-control-markers-selector', item);
-            input.type = 'checkbox';
-            input.checked = map.hasLayer(layer);
-            input.onclick = () => map.hasLayer(layer) ? map.removeLayer(layer) : map.addLayer(layer);
-            
-            const name = L.DomUtil.create('span', '', item);
-            name.innerHTML = ' ' + layer.getProps().type;
-            name.onclick = (e) => {
-                e.preventDefault();
-                if (map.hasLayer(layer)) {
-                    map.flyTo(layer.getLatLng());
-                    if (layer.bounce) layer.bounce(1);
-                    layer.openPopup();
-                }
-            };
-        });
+function startAddMarkerMode() {
+    if (addMarkerDialog) {
+        cleanupAddMarkerMode();
+        return;
     }
-});
 
-L.control.markers = function (markerGroup, opts) {
-    return new L.Control.Markers(markerGroup, opts);
-};
+    addMarkerDialog = L.DomUtil.create('div', 'leaflet-control-markers-add-dialog-inline');
+    addMarkerDialog.style.cssText = "padding: 10px; background: white; border: 1px solid #ccc; border-radius: 4px; margin-top: 5px;";
+    addMarkerDialog.innerHTML = `
+        <form>
+            <select style="width:100%">
+                ${["treasure", "inca", "evil", "family", "fleet", "train", "missionsource", "missiontarget", "informant"]
+                    .map(t => `<option value="${t}">${t}</option>`).join('')}
+            </select>
+            <input type="text" placeholder="Description..." style="width:100%; margin-top:5px;">
+            <div style="color:red; font-size:10px; margin-top:5px;">Click map to place marker</div>
+            <button type="button" id="btnCancelMarker" style="width:100%; margin-top:5px;">Cancel</button>
+            <button type="button" id="btnStoreMarkers" style="width:100%; margin-top:5px;">Store All Markers</button>
+        </form>
+    `;
+    
+    // Append to the panel container if open, or body
+    const container = document.querySelector('.leaflet-panel-layers-expanded') || document.body;
+    container.appendChild(addMarkerDialog);
 
-setTimeout(() => L.control.markers(markerGroup, { collapsed: false }).addTo(map), 10);
+    map.on("click", onMapClickForMarker);
+    map.getPane("overlayPane").classList.add("cursor-add-shortcut");
+    
+    addMarkerDialog.querySelector("#btnCancelMarker").onclick = cleanupAddMarkerMode;
+    addMarkerDialog.querySelector("#btnStoreMarkers").onclick = () => {
+        localStorage.setItem("markers", JSON.stringify(markerGroup.toGeoJSON()));
+        cleanupAddMarkerMode();
+    };
+}
+
+function onMapClickForMarker(e) {
+    const type = addMarkerDialog.querySelector("select").value;
+    const desc = addMarkerDialog.querySelector("input").value;
+    if (type !== "informant") {
+        const old = markerGroup.getLayers().find(l => l.getProps().type === type);
+        if (old) markerGroup.removeLayer(old);
+    }
+    markerGroup.addData({
+        type: "Feature",
+        properties: { type: type, description: desc },
+        geometry: { type: "Point", coordinates: [e.latlng.lng, e.latlng.lat] }
+    });
+    cleanupAddMarkerMode();
+}
+
+function cleanupAddMarkerMode() {
+    map.off("click", onMapClickForMarker);
+    map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
+    if (addMarkerDialog && addMarkerDialog.parentNode) {
+        addMarkerDialog.parentNode.removeChild(addMarkerDialog);
+    }
+    addMarkerDialog = null;
+}
 
 // Dynamic Label Scaling
 function updateLabelScale() {
@@ -650,7 +540,6 @@ function updateLabelScale() {
 
 map.on('zoom', updateLabelScale);
 map.on('zoomend', () => {
-    updateOverlayUI();
     let era = parseInt(storage.defaultOverlay.split(" ")[0]);
     filterCities(era);
 });

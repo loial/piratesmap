@@ -91,167 +91,85 @@ body {
     float: left;
 }
 
-.my-div-icon {
-    width: 50px !important;
-    height: 50px !important;
-    border-radius: 50%;
-    background-color: transparent;
-    border: 2px solid #333;
+/* Leaflet Panel Layers Styles */
+.leaflet-panel-layers {
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    max-width: 280px;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,0.3);
 }
 
-/* Leaflet Control Markers Styles */
-.leaflet-control-markers-toggle {
-    background-position: 50% 50%;
-    background-repeat: no-repeat;
-    display: block;
+.leaflet-panel-layers-item {
+    padding: 4px 8px;
+    transition: background 0.2s;
 }
 
-.leaflet-control-markers {
-    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-    background: #fff;
-    border-radius: 5px;
+.leaflet-panel-layers-item:hover {
+    background: rgba(0, 0, 0, 0.05);
 }
 
-.leaflet-control-markers-toggle {
-    background-image: url(images/marker-icon.png);
-    width: 36px;
-    height: 36px;
+.leaflet-panel-layers-item.active {
+    background: rgba(139, 0, 0, 0.08);
 }
 
-.leaflet-retina .leaflet-control-markers-toggle {
-    background-image: url(images/marker-icon-2x.png);
-    background-size: 26px 26px;
+.leaflet-panel-layers-item.active .leaflet-panel-layers-title {
+    color: #8b0000;
+    font-weight: bold;
 }
 
-.leaflet-touch .leaflet-control-markers-toggle {
-    width: 44px;
-    height: 44px;
+.leaflet-panel-layers-group {
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    margin-bottom: 8px;
+    padding-bottom: 8px;
 }
 
-.leaflet-control-markers .leaflet-control-markers-list,
-.leaflet-control-markers-expanded .leaflet-control-markers-toggle {
-    display: none;
+.leaflet-panel-layers-group:last-child {
+    border-bottom: none;
 }
 
-.leaflet-control-markers-expanded .leaflet-control-markers-list {
-    display: block;
-    position: relative;
-}
-
-.leaflet-control-markers-expanded {
-    padding: 6px 10px 6px 6px;
-    color: #333;
-    background: #fff;
-}
-
-.leaflet-control-markers-scrollbar {
-    overflow-y: scroll;
-    overflow-x: hidden;
-    padding-right: 5px;
-}
-
-.leaflet-control-markers-selector {
-    margin-top: 2px;
-    position: relative;
-    top: 1px;
-}
-
-.leaflet-control-markers label {
-    display: block;
-    font-size: 13px;
-    font-size: 1.08333em;
-}
-
-.leaflet-control-markers-separator {
-    height: 0;
-    border-top: 1px solid #ddd;
-    margin: 5px -10px 5px -6px;
-}
-
-.leaflet-control-markers-header {
-    display: flow-root;
-}
-
-.leaflet-control-markers-header > div:first-child {
-    float: left;
-}
-
-.leaflet-control-markers-header > div:last-child {
-    float: right;
+.leaflet-panel-layers-label {
+    cursor: pointer;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
     align-items: center;
     gap: 8px;
 }
 
-.leaflet-control-markers-analyzeicon {
-    font-size: 18px;
-    cursor: pointer;
-}
-
-.leaflet-control-markers-addicon {
-    position: relative;
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
+.panel-icon {
+    font-size: 16px;
+    min-width: 20px;
     display: inline-block;
+    text-align: center;
 }
 
-/* Base style for the two bars that form + or x */
-.leaflet-control-markers-addicon::before,
-.leaflet-control-markers-addicon::after {
-    content: '';
-    position: absolute;
-    background-color: #333;
-    transition: transform 0.2s ease-in-out;
+/* Ensure the panel respects font toggle */
+.leaflet-panel-layers,
+.leaflet-panel-layers-title {
+    font-family: inherit;
 }
 
-/* Horizontal bar */
-.leaflet-control-markers-addicon::before {
-    top: 8px;
-    left: 0;
-    width: 100%;
-    height: 2px;
+/* Style for 'locked' checkboxes in the era overlay control */
+.leaflet-panel-layers-item.active input[type="checkbox"] {
+    filter: grayscale(100%);
+    opacity: 0.4;
 }
 
-/* Vertical bar */
-.leaflet-control-markers-addicon::after {
-    top: 0;
-    left: 8px;
-    width: 2px;
-    height: 100%;
-}
-
-/* State: Open (Cross symbol) */
-.leaflet-control-markers-addicon.is-open::before {
-    transform: rotate(45deg);
-}
-.leaflet-control-markers-addicon.is-open::after {
-    transform: rotate(45deg);
-}
-
-
-.leaflet-control-markers-add-dialog {
+/* Conditional Eras Group visibility */
+body.base-official .leaflet-panel-layers-group:nth-child(2),
+body.base-static .leaflet-panel-layers-group:nth-child(2) {
     display: none;
-    width: 100%; /* Force wrap below icons */
-    margin-top: 10px;
 }
 
-.leaflet-control-markers-add-dialog-info {
-    color: red;
-    font-size: smaller;
+.leaflet-control-markers-add-dialog-inline {
+    border-top: 1px solid #ddd;
+    margin-top: 10px;
+    padding-top: 10px;
 }
 
 .deletemarker,
-.leaflet-control-markers-store,
 .leaflet-popup-content a {
     cursor: pointer;
-}
-
-.leaflet-control-markers-store:active {
-    cursor: progress;
-    filter: invert();
 }
 
 .cursor-add-shortcut {
@@ -316,15 +234,4 @@ body {
     white-space: pre-wrap;
     max-height: 100px;
     overflow-y: auto;
-}
-
-/* Style for 'locked' checkboxes in the era overlay control only */
-.overlays input[type="checkbox"].leaflet-control-layers-selector:checked:enabled {
-    filter: grayscale(100%);
-    opacity: 0.3;
-}
-
-.overlays .active-overlay-label {
-    font-weight: bold;
-    color: #8b0000; /* Dark red for focus */
 }
