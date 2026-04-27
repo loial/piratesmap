@@ -191,6 +191,7 @@ const panelBaseLayers = [
 const panelOverlays = [
     {
         group: "Eras (Dynamic Map only)",
+        id: "group-eras",
         layers: Object.keys(mutuallyExclusiveOverlays).map(name => ({
             name: name,
             layer: mutuallyExclusiveOverlays[name],
@@ -200,6 +201,7 @@ const panelOverlays = [
     },
     {
         group: "Settings",
+        id: "group-settings",
         layers: [
             { name: "Pirates Font", layer: L.layerGroup(), active: storage.usePiratesFont, icon: '<span class="panel-icon">🔤</span>' },
             { name: "Lat/Long lines", layer: latlngLayerInstance, active: storage.latlngOverlay, icon: '<span class="panel-icon">🌐</span>' }
@@ -207,6 +209,7 @@ const panelOverlays = [
     },
     {
         group: "Tools",
+        id: "group-tools",
         layers: [
             { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">➕</span>' },
             { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">🗺️</span>' },
@@ -215,9 +218,23 @@ const panelOverlays = [
     },
     {
         group: "Markers",
+        id: "group-markers",
         layers: [] // Populated dynamically below
     }
 ];
+
+// Monkey-patch L.Control.PanelLayers to preserve group IDs
+const originalAddLayer = L.Control.PanelLayers.prototype._addLayer;
+L.Control.PanelLayers.prototype._addLayer = function (layerDef, overlay, groupName, collapsed) {
+    // Find the group definition to get its ID
+    const groups = overlay ? panelOverlays : panelBaseLayers;
+    const groupDef = groups.find(g => g.group === groupName);
+    
+    // Store group ID on the layer object for later retrieval during _update
+    layerDef.groupId = groupDef ? groupDef.id : null;
+    
+    return originalAddLayer.apply(this, arguments);
+};
 
 const panelControl = L.control.panelLayers(panelBaseLayers, panelOverlays, {
     compact: true,
