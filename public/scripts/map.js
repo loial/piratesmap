@@ -302,11 +302,25 @@ map.on('baselayerchange', function (event) {
         isInternalSwitch = true;
         try {
             if (isOfficial) {
-                // Leaflet-panel-layers manages its own layers, but we need to ensure
-                // internal state (labels, latlng) syncs with the base map.
+                // Remove all era overlays if on official map
+                for (let o in mutuallyExclusiveOverlays) {
+                    if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
+                }
                 if (map.hasLayer(latlngLayerInstance)) map.removeLayer(latlngLayerInstance);
             } else {
                 if (storage.latlngOverlay && !map.hasLayer(latlngLayerInstance)) map.addLayer(latlngLayerInstance);
+                
+                // If switching to Dynamic, ensure the default overlay is shown
+                if (isDynamic) {
+                    if (storage.defaultOverlay && !map.hasLayer(mutuallyExclusiveOverlays[storage.defaultOverlay])) {
+                        map.addLayer(mutuallyExclusiveOverlays[storage.defaultOverlay]);
+                    }
+                } else {
+                    // If switching to Static, remove any active era overlays
+                    for (let o in mutuallyExclusiveOverlays) {
+                        if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
+                    }
+                }
             }
 
             if (!map.hasLayer(citiesLayer)) map.addLayer(citiesLayer);
@@ -333,13 +347,20 @@ map.on('baselayerchange', function (event) {
 const setupInitialState = () => {
     if (storage.baseLayer !== "Official Map") {
         citiesLayer.addTo(map);
+        if (storage.latlngOverlay) latlngLayerInstance.addTo(map);
     }
     
     // Initial body class
     document.body.classList.remove('base-official', 'base-static', 'base-dynamic');
     if (storage.baseLayer === "Official Map") document.body.classList.add('base-official');
     else if (storage.baseLayer === "Compiled Map (Full, static)") document.body.classList.add('base-static');
-    else document.body.classList.add('base-dynamic');
+    else {
+        document.body.classList.add('base-dynamic');
+        // If initial load is dynamic, add the default era overlay
+        if (storage.defaultOverlay) {
+            mutuallyExclusiveOverlays[storage.defaultOverlay].addTo(map);
+        }
+    }
 
     map.setView(L.latLng(24, -78), 3);
     
