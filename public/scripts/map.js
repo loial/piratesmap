@@ -659,19 +659,34 @@ function startAddMarkerMode() {
 function onMapClickForMarker(e) {
     const type = document.getElementById("markerType").value;
     const desc = document.getElementById("markerDesc").value;
+    
+    let properties = { type: type, description: desc };
+    let geometry = { type: "Point", coordinates: [e.latlng.lng, e.latlng.lat] };
+    
+    // Check if we clicked a city hotspot recently
+    if (lastClickedCity) {
+        properties.city = lastClickedCity.properties.name;
+    }
+
     if (type !== "informant") {
         const old = markerGroup.getLayers().find(l => l.getProps().type === type);
         if (old) markerGroup.removeLayer(old);
     }
+
     markerGroup.addData({
         type: "Feature",
-        properties: { type: type, description: desc },
-        geometry: { type: "Point", coordinates: [e.latlng.lng, e.latlng.lat] }
+        properties: properties,
+        geometry: geometry
     });
     
     // Explicit cleanup
     cleanupAddMarkerMode();
     if (addMarkerControl) addMarkerControl.close();
+
+    // Refresh to trigger orbital recalculation
+    const all = markerGroup.toGeoJSON();
+    markerGroup.clearLayers();
+    markerGroup.addData(all);
 }
 
 function cleanupAddMarkerMode() {
