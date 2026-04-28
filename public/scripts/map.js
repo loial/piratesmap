@@ -472,13 +472,35 @@ const markerGroup = L.geoJSON(null, {
 
 // Sync markerGroup with Panel
 markerGroup.on("layeradd", (e) => {
+    const name = e.layer.getProps().description || e.layer.getProps().type;
     panelControl.addOverlay({
-        name: e.layer.getProps().description || e.layer.getProps().type,
+        // Wrap the name in a class to identify it for custom click behavior
+        name: `<span class="marker-link-text">${name}</span>`,
         layer: e.layer,
         group: "Markers",
         icon: '<span class="panel-icon no-checkbox">📍</span>'
     });
 });
+
+// Event delegation for custom marker interactions in the panel
+document.addEventListener('click', (event) => {
+    if (event.target.classList.contains('marker-link-text')) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Find the sibling input to get the Leaflet layer ID (stamp)
+        const item = event.target.closest('.leaflet-panel-layers-item');
+        const input = item?.querySelector('input');
+        if (input && input.value) {
+            const marker = markerGroup.getLayer(input.value);
+            if (marker) {
+                map.flyTo(marker.getLatLng(), 5);
+                if (typeof marker.bounce === 'function') marker.bounce(1);
+                marker.openPopup();
+            }
+        }
+    }
+}, true); // Use capture to intercept before the plugin toggles the layer
 
 markerGroup.on("layerremove", (e) => {
     panelControl.removeLayer(e.layer);
