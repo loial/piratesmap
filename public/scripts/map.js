@@ -540,8 +540,12 @@ function recalculateOrbits() {
             const center = cityLayer.getLatLng();
             const radius = 0.14; // Halved radius for closer proximity
             layers.forEach((layer, i) => {
-                // Distribute evenly
-                const angle = (i / layers.length) * 2 * Math.PI;
+                // Distribute evenly with a base rotation and slight random jitter
+                const deg2rad = Math.PI / 180;
+                const baseAngle = 15 * deg2rad;
+                const jitter = (Math.random() * 20 - 10) * deg2rad;
+                
+                const angle = ((i / layers.length) * 2 * Math.PI) + baseAngle + jitter;
                 const newPos = [
                     center.lat + radius * Math.sin(angle),
                     center.lng + radius * Math.cos(angle)
