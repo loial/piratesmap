@@ -67,6 +67,8 @@ const storageDefaults = {
     animatedReefs: true
 };
 
+let lastClickedCity = null;
+
 let storage = localStorage.getItem("storage");
 if (storage) {
     storage = JSON.parse(storage);
@@ -107,6 +109,13 @@ function onEachCityFeature(feature, layer) {
         direction: "center",
         className: "city-labels label-" + direction
     });
+    
+    // Track city clicks for marker binding
+    layer.on('click', (e) => {
+        lastClickedCity = feature;
+        setTimeout(() => { lastClickedCity = null; }, 100);
+    });
+
     let popupContent = `<b>${feature.properties.name} - ${feature.properties.location}</b>`;
 
     citiesLayer.cities[feature.properties.name] = layer;
@@ -483,6 +492,12 @@ function onEachMarkerFeature(feature, layer) {
     
     let popupContent = `<b>${title}</b>`;
     if (feature.properties.description && feature.properties.type !== "family") popupContent += `<p>${feature.properties.description}</p>`;
+    
+    if (feature.properties.city) {
+        popupContent += `<p>City: ${feature.properties.city}</p>`;
+        popupContent += `<p><a class="relocatemarker">Relocate to current city</a></p>`;
+    }
+
     if (feature.properties.type === "missionsource") popupContent += `<p><a onClick="map.flyTo(markerGroup.getLayers().find(l=>l.getProps().type=='missiontarget').getLatLng())">Show target</a></p>`;
     if (feature.properties.type === "missiontarget") popupContent += `<p><a onClick="map.flyTo(markerGroup.getLayers().find(l=>l.getProps().type=='missionsource').getLatLng())">Show start</a></p>`;
     
@@ -490,10 +505,44 @@ function onEachMarkerFeature(feature, layer) {
     layer.bindPopup(popupContent);
 }
 
+// Dynamic positioning logic for city-bound markers
+function getMarkerPosition(feature) {
+    if (!feature.properties.city) {
+        // Coordinate-based markers (return direct LatLng)
+        return L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
+    }
+
+    const cityName = feature.properties.city;
+    const cityLayer = citiesLayer.cities[cityName];
+    if (!cityLayer) return L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
+
+    const cityLatLng = cityLayer.getLatLng();
+    
+    // Find all markers bound to this same city
+    const siblings = markerGroup.getLayers().filter(l => l.getProps().city === cityName);
+    const index = siblings.indexOf(siblings.find(l => l.getProps() === feature.properties));
+    
+    if (index === -1 || siblings.length <= 1) return cityLatLng;
+
+    // Orbit logic: place markers in a circle around the city
+    const radius = 0.35; // Visual offset radius
+    const angle = (index / siblings.length) * 2 * Math.PI;
+    
+    return L.latLng(
+        cityLatLng.lat + radius * Math.sin(angle),
+        cityLatLng.lng + radius * Math.cos(angle)
+    );
+}
+
 const markerGroup = L.geoJSON(null, {
     onEachFeature: onEachMarkerFeature,
     pointToLayer(feature, latlng) {
-        let options = { draggable: ["treasure", "inca", "family"].includes(feature.properties.type) };
+        const dynamicLatLng = getMarkerPosition(feature);
+        let options = { 
+            draggable: ["treasure", "inca", "family"].includes(feature.properties.type) && !feature.properties.city,
+            autoPan: true
+        };
+        
         if (feature.properties.type === "treasure" || feature.properties.type === "inca") options.icon = icons.treasure;
         else if (feature.properties.type === "family") options.icon = icons.family;
         else if (feature.properties.type === "evil") options.icon = icons.enemy;
@@ -501,19 +550,21 @@ const markerGroup = L.geoJSON(null, {
         else if (feature.properties.type === "train") options.icon = icons.train;
         else if (feature.properties.type === "missionsource") options.icon = icons.missionFrom;
         else if (feature.properties.type === "missiontarget") options.icon = icons.missionTo;
-        return L.marker(latlng, options);
+        
+        return L.marker(dynamicLatLng, options);
     }
 }).addTo(map);
 
 // Sync markerGroup with Panel
 markerGroup.on("layeradd", (e) => {
-    const name = e.layer.getProps().description || e.layer.getProps().type;
+    const props = e.layer.getProps();
+    const name = props.description || props.type;
     panelControl.addOverlay({
         // Wrap the name in a class to identify it for custom click behavior
         name: `<span class="marker-link-text">${name}</span>`,
         layer: e.layer,
         group: "Markers",
-        icon: '<span class="panel-icon no-checkbox">📍</span>'
+        icon: `<span class="panel-icon no-checkbox">${props.city ? '🏙️' : '📍'}</span>`
     });
 });
 
@@ -545,8 +596,24 @@ let storedMarkers = localStorage.getItem("markers");
 if (storedMarkers) markerGroup.addData(JSON.parse(storedMarkers));
 
 markerGroup.on("popupopen", (e) => {
+    const source = e.popup._source;
     const delBtn = e.popup._container.querySelector(".deletemarker");
-    if (delBtn) delBtn.onclick = () => markerGroup.removeLayer(e.popup._source);
+    if (delBtn) delBtn.onclick = () => markerGroup.removeLayer(source);
+    
+    const relBtn = e.popup._container.querySelector(".relocatemarker");
+    if (relBtn) relBtn.onclick = () => {
+        if (lastClickedCity) {
+            source.setProps({ city: lastClickedCity.properties.name });
+            showToast(`Relocated to ${lastClickedCity.properties.name}`);
+            
+            // Refresh positions
+            const all = markerGroup.toGeoJSON();
+            markerGroup.clearLayers();
+            markerGroup.addData(all);
+        } else {
+            showToast("Click a city first to relocate!");
+        }
+    };
 });
 
 // Marker Add Dialog
