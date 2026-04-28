@@ -113,14 +113,14 @@ function onEachCityFeature(feature, layer) {
     
     // Intercept clicks for marker binding
     layer.on('click', (e) => {
+        // Persist lastClickedCity for relocation and binding
+        lastClickedCity = feature;
+
         if (isAddingMarker) {
             L.DomEvent.stopPropagation(e);
             addMarkerToTarget(layer.getLatLng(), feature);
             return;
         }
-        // Track last clicked city for relocation purposes
-        lastClickedCity = feature;
-        setTimeout(() => { lastClickedCity = null; }, 500);
     });
 
     let popupContent = `<b>${feature.properties.name} - ${feature.properties.location}</b>`;
@@ -502,6 +502,10 @@ function onEachMarkerFeature(feature, layer) {
     
     if (feature.properties.city) {
         popupContent += `<p>City: ${feature.properties.city}</p>`;
+    }
+    
+    // Only allow relocation for non-treasure/inca/family types
+    if (!["treasure", "inca", "family"].includes(feature.properties.type)) {
         popupContent += `<p><a class="relocatemarker">Relocate to current city</a></p>`;
     }
 
@@ -514,25 +518,27 @@ function onEachMarkerFeature(feature, layer) {
 
 // Dynamic positioning logic for city-bound markers
 function getMarkerPosition(feature) {
-    if (!feature.properties.city) {
+    const props = feature.properties;
+    if (!props.city) {
         // Coordinate-based markers (return direct LatLng)
         return L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
     }
 
-    const cityName = feature.properties.city;
+    const cityName = props.city;
     const cityLayer = citiesLayer.cities[cityName];
     if (!cityLayer) return L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
 
     const cityLatLng = cityLayer.getLatLng();
     
-    // Find all markers bound to this same city
-    const siblings = markerGroup.getLayers().filter(l => l.getProps().city === cityName);
-    const index = siblings.indexOf(siblings.find(l => l.getProps() === feature.properties));
+    // Use the raw data from markerGroup for deterministic orbit calculation
+    const allFeatures = markerGroup.toGeoJSON().features;
+    const siblings = allFeatures.filter(f => f.properties.city === cityName);
+    const index = siblings.findIndex(f => JSON.stringify(f.properties) === JSON.stringify(props));
     
     if (index === -1 || siblings.length <= 1) return cityLatLng;
 
     // Orbit logic: place markers in a circle around the city
-    const radius = 0.35; // Visual offset radius
+    const radius = 0.18; // Smaller offset radius for less overlap
     const angle = (index / siblings.length) * 2 * Math.PI;
     
     return L.latLng(
