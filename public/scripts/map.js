@@ -273,7 +273,7 @@ function handleOverlayAdd(event) {
     }
     if (event.name === "Store All Markers") {
         localStorage.setItem("markers", JSON.stringify(markerGroup.toGeoJSON()));
-        alert("Markers stored in persistent storage.");
+        showToast("Markers stored in persistent storage.");
         setTimeout(() => map.removeLayer(event.layer), 100);
     }
 
@@ -574,3 +574,19 @@ updateLabelScale(); // Initialize on load
 
 document.getElementById('map').style.cursor = 'crosshair';
 map.attributionControl.addAttribution("Artwork from Sid Meier's Pirates! (1990 - Amiga) | Manual info | Compiled by Herman Sletteng");
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-message';
+    toast.innerText = message;
+    document.body.appendChild(toast);
+    
+    // Trigger fade in
+    setTimeout(() => toast.classList.add('visible'), 10);
+    
+    // Fade out and remove
+    setTimeout(() => {
+        toast.classList.remove('visible');
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 2000);
+}

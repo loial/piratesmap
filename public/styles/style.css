@@ -264,3 +264,27 @@ body.base-static .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-
     max-height: 100px;
     overflow-y: auto;
 }
+
+/* Toast Notifications */
+.toast-message {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40, 40, 40, 0.85);
+    color: #f1e5ac; /* Parchment-like yellow */
+    padding: 12px 24px;
+    border-radius: 20px;
+    font-family: piratesFont, Verdana, sans-serif;
+    font-size: 14px;
+    z-index: 9999;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    border: 1px solid #d4af37; /* Gold border */
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.toast-message.visible {
+    opacity: 1;
+}
