@@ -190,7 +190,7 @@ const panelBaseLayers = [
 
 const panelOverlays = [
     {
-        group: "Eras (Dynamic Map only)",
+        group: "Eras",
         id: "group-eras",
         layers: Object.keys(mutuallyExclusiveOverlays).map(name => ({
             name: name,

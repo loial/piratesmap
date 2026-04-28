@@ -114,10 +114,12 @@ body {
     background: rgba(139, 0, 0, 0.08);
 }
 
+/*
 .leaflet-panel-layers-item.active .leaflet-panel-layers-title {
     color: #8b0000;
     font-weight: bold;
 }
+*/
 
 .leaflet-panel-layers-group {
     border-bottom: 1px solid rgba(0,0,0,0.1);
@@ -166,6 +168,20 @@ body.base-static .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-
 .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(n+3) input {
     display: none !important;
 }
+
+/* Hide the non-selected overlays when panel is collapsed */
+.leaflet-panel-layers:not(.expanded) .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) .leaflet-panel-layers-item:has(input:not(:checked)) {
+    display: none;
+}
+
+/* Show the label of the selected overlay, even when collapsed (well, the first identifying word/number part at least) */
+.leaflet-panel-layers:not(.expanded) .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) .leaflet-panel-layers-item:has(input:checked) .leaflet-panel-layers-title>span { display: inline; }
+
+/* Make the collapsed panel wide enough to show the first word of overlay name (i.e. "All","1660" etc) */
+.leaflet-panel-layers {
+    width: 3em;
+}
+
 
 .leaflet-control-markers-add-dialog-floating h3 {
     margin-bottom: 10px;
