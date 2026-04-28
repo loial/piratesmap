@@ -533,12 +533,19 @@ function getMarkerPosition(feature) {
     // Use the raw data from markerGroup for deterministic orbit calculation
     const allFeatures = markerGroup.toGeoJSON().features;
     const siblings = allFeatures.filter(f => f.properties.city === cityName);
-    const index = siblings.findIndex(f => JSON.stringify(f.properties) === JSON.stringify(props));
     
-    if (index === -1 || siblings.length <= 1) return cityLatLng;
+    // Find our index among siblings to determine angle
+    const index = siblings.findIndex(f => 
+        f.properties.type === props.type && 
+        f.properties.description === props.description &&
+        f.geometry.coordinates[0] === feature.geometry.coordinates[0]
+    );
+    
+    if (index === -1) return cityLatLng;
 
-    // Orbit logic: place markers in a circle around the city
-    const radius = 0.18; // Smaller offset radius for less overlap
+    // Orbit logic: always offset from city center to avoid overlap
+    const radius = 0.28; 
+    // Spread markers evenly (e.g., 2 = 180deg, 3 = 120deg)
     const angle = (index / siblings.length) * 2 * Math.PI;
     
     return L.latLng(
@@ -616,6 +623,11 @@ markerGroup.on("popupopen", (e) => {
     const relBtn = e.popup._container.querySelector(".relocatemarker");
     if (relBtn) relBtn.onclick = () => {
         if (lastClickedCity) {
+            // Prevent binding coordinate-only types to cities during relocation
+            if (["treasure", "inca", "family"].includes(source.getProps().type)) {
+                showToast("Treasure/Family cannot be bound to cities!");
+                return;
+            }
             source.setProps({ city: lastClickedCity.properties.name });
             showToast(`Relocated to ${lastClickedCity.properties.name}`);
             
@@ -681,7 +693,8 @@ function addMarkerToTarget(latlng, cityFeature) {
     let properties = { type: type, description: desc };
     let geometry = { type: "Point", coordinates: [latlng.lng, latlng.lat] };
     
-    if (cityFeature) {
+    // ONLY bind to city if the type is NOT coordinate-only
+    if (cityFeature && !["treasure", "inca", "family"].includes(type)) {
         properties.city = cityFeature.properties.name;
     }
 
