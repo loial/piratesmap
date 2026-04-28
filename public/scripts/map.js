@@ -516,48 +516,55 @@ function onEachMarkerFeature(feature, layer) {
     layer.bindPopup(popupContent);
 }
 
-// Dynamic positioning logic for city-bound markers
-function getMarkerPosition(feature) {
-    const props = feature.properties;
-    if (!props.city) {
-        // Coordinate-based markers (return direct LatLng)
-        return L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
+// Spreads markers bound to the same city in an orbit to prevent overlap
+const markerSpiderLines = L.layerGroup().addTo(map);
+
+function recalculateOrbits() {
+    const cityMarkers = {};
+    markerSpiderLines.clearLayers();
+    
+    // Group markers by city
+    markerGroup.eachLayer(layer => {
+        const props = layer.getProps();
+        if (props.city) {
+            if (!cityMarkers[props.city]) cityMarkers[props.city] = [];
+            cityMarkers[props.city].push(layer);
+        }
+    });
+
+    // Apply angular offsets and draw connection lines
+    for (let city in cityMarkers) {
+        const layers = cityMarkers[city];
+        const cityLayer = citiesLayer.cities[city];
+        if (cityLayer) {
+            const center = cityLayer.getLatLng();
+            const radius = 0.14; // Halved radius for closer proximity
+            layers.forEach((layer, i) => {
+                // Distribute evenly
+                const angle = (i / layers.length) * 2 * Math.PI;
+                const newPos = [
+                    center.lat + radius * Math.sin(angle),
+                    center.lng + radius * Math.cos(angle)
+                ];
+                
+                layer.setLatLng(newPos);
+                
+                // Draw a thin connecting line
+                L.polyline([center, newPos], {
+                    color: '#8b0000', // Dark red to match active theme
+                    weight: 1.5,
+                    dashArray: '3, 3',
+                    opacity: 0.6,
+                    interactive: false
+                }).addTo(markerSpiderLines);
+            });
+        }
     }
-
-    const cityName = props.city;
-    const cityLayer = citiesLayer.cities[cityName];
-    if (!cityLayer) return L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
-
-    const cityLatLng = cityLayer.getLatLng();
-    
-    // Use the raw data from markerGroup for deterministic orbit calculation
-    const allFeatures = markerGroup.toGeoJSON().features;
-    const siblings = allFeatures.filter(f => f.properties.city === cityName);
-    
-    // Find our index among siblings to determine angle
-    const index = siblings.findIndex(f => 
-        f.properties.type === props.type && 
-        f.properties.description === props.description &&
-        f.geometry.coordinates[0] === feature.geometry.coordinates[0]
-    );
-    
-    if (index === -1) return cityLatLng;
-
-    // Orbit logic: always offset from city center to avoid overlap
-    const radius = 0.28; 
-    // Spread markers evenly (e.g., 2 = 180deg, 3 = 120deg)
-    const angle = (index / siblings.length) * 2 * Math.PI;
-    
-    return L.latLng(
-        cityLatLng.lat + radius * Math.sin(angle),
-        cityLatLng.lng + radius * Math.cos(angle)
-    );
 }
 
 const markerGroup = L.geoJSON(null, {
     onEachFeature: onEachMarkerFeature,
     pointToLayer(feature, latlng) {
-        const dynamicLatLng = getMarkerPosition(feature);
         let options = { 
             draggable: ["treasure", "inca", "family"].includes(feature.properties.type) && !feature.properties.city,
             autoPan: true
@@ -571,7 +578,7 @@ const markerGroup = L.geoJSON(null, {
         else if (feature.properties.type === "missionsource") options.icon = icons.missionFrom;
         else if (feature.properties.type === "missiontarget") options.icon = icons.missionTo;
         
-        return L.marker(dynamicLatLng, options);
+        return L.marker(latlng, options);
     }
 }).addTo(map);
 
@@ -586,6 +593,8 @@ markerGroup.on("layeradd", (e) => {
         group: "Markers",
         icon: `<span class="panel-icon no-checkbox">${props.city ? '🏙️' : '📍'}</span>`
     });
+    // Trigger orbit update after a small delay to ensure indexing is complete
+    setTimeout(recalculateOrbits, 0);
 });
 
 // Event delegation for custom marker interactions in the panel
@@ -610,10 +619,14 @@ document.addEventListener('click', (event) => {
 
 markerGroup.on("layerremove", (e) => {
     panelControl.removeLayer(e.layer);
+    setTimeout(recalculateOrbits, 0);
 });
 
 let storedMarkers = localStorage.getItem("markers");
-if (storedMarkers) markerGroup.addData(JSON.parse(storedMarkers));
+if (storedMarkers) {
+    markerGroup.addData(JSON.parse(storedMarkers));
+    setTimeout(recalculateOrbits, 100); // Ensure city data is loaded
+}
 
 markerGroup.on("popupopen", (e) => {
     const source = e.popup._source;
@@ -623,18 +636,14 @@ markerGroup.on("popupopen", (e) => {
     const relBtn = e.popup._container.querySelector(".relocatemarker");
     if (relBtn) relBtn.onclick = () => {
         if (lastClickedCity) {
-            // Prevent binding coordinate-only types to cities during relocation
+            // Strict type check during relocation
             if (["treasure", "inca", "family"].includes(source.getProps().type)) {
                 showToast("Treasure/Family cannot be bound to cities!");
                 return;
             }
             source.setProps({ city: lastClickedCity.properties.name });
             showToast(`Relocated to ${lastClickedCity.properties.name}`);
-            
-            // Refresh positions
-            const all = markerGroup.toGeoJSON();
-            markerGroup.clearLayers();
-            markerGroup.addData(all);
+            recalculateOrbits();
         } else {
             showToast("Click a city first to relocate!");
         }
