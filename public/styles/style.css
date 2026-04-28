@@ -93,12 +93,12 @@ body {
 
 /* Leaflet Panel Layers Styles */
 .leaflet-panel-layers {
-    background: rgba(255, 255, 255, 0.85);
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
     max-width: 280px;
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255,255,255,0.3);
+    backdrop-filter: blur(2px);
+    border: 1px solid rgba(0,0,0,0.2);
 }
 
 .leaflet-panel-layers-item {
