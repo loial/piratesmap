@@ -68,6 +68,7 @@ const storageDefaults = {
 };
 
 let lastClickedCity = null;
+let isAddingMarker = false;
 
 let storage = localStorage.getItem("storage");
 if (storage) {
@@ -110,10 +111,16 @@ function onEachCityFeature(feature, layer) {
         className: "city-labels label-" + direction
     });
     
-    // Track city clicks for marker binding
+    // Intercept clicks for marker binding
     layer.on('click', (e) => {
+        if (isAddingMarker) {
+            L.DomEvent.stopPropagation(e);
+            addMarkerToTarget(layer.getLatLng(), feature);
+            return;
+        }
+        // Track last clicked city for relocation purposes
         lastClickedCity = feature;
-        setTimeout(() => { lastClickedCity = null; }, 100);
+        setTimeout(() => { lastClickedCity = null; }, 500);
     });
 
     let popupContent = `<b>${feature.properties.name} - ${feature.properties.location}</b>`;
@@ -640,7 +647,7 @@ function startAddMarkerMode() {
                         .map(t => `<option value="${t}">${t}</option>`).join('')}
                 </select>
                 <input id="markerDesc" type="text" placeholder="Description..." style="width:100%; margin-top:10px; padding: 5px;">
-                <div style="color:red; font-size:11px; margin-top:10px; font-weight: bold;">Click on map to place</div>
+                <div style="color:red; font-size:11px; margin-top:10px; font-weight: bold;">Click on a CITY or any map location</div>
             </form>
         `;
         addMarkerControl.setContent(content);
@@ -651,21 +658,25 @@ function startAddMarkerMode() {
         });
     }
 
+    isAddingMarker = true;
     addMarkerControl.open();
     map.on("click", onMapClickForMarker);
     map.getPane("overlayPane").classList.add("cursor-add-shortcut");
 }
 
 function onMapClickForMarker(e) {
+    addMarkerToTarget(e.latlng, null);
+}
+
+function addMarkerToTarget(latlng, cityFeature) {
     const type = document.getElementById("markerType").value;
     const desc = document.getElementById("markerDesc").value;
     
     let properties = { type: type, description: desc };
-    let geometry = { type: "Point", coordinates: [e.latlng.lng, e.latlng.lat] };
+    let geometry = { type: "Point", coordinates: [latlng.lng, latlng.lat] };
     
-    // Check if we clicked a city hotspot recently
-    if (lastClickedCity) {
-        properties.city = lastClickedCity.properties.name;
+    if (cityFeature) {
+        properties.city = cityFeature.properties.name;
     }
 
     if (type !== "informant") {
@@ -690,6 +701,7 @@ function onMapClickForMarker(e) {
 }
 
 function cleanupAddMarkerMode() {
+    isAddingMarker = false;
     map.off("click", onMapClickForMarker);
     map.getPane("overlayPane").classList.remove("cursor-add-shortcut");
 }
