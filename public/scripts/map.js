@@ -40,6 +40,8 @@ const mutuallyExclusiveOverlays = {
     "1680 - Pirates' Sunset": L.imageOverlay('maps/PiratesMapOverlay1680NoLabel.png', mapBounds),
 };
 
+const reefsOverlay = L.imageOverlay('maps/PiratesMapReefs.gif', mapBounds);
+
 const latlngLayerInstance = L.latlngGraticule({
     font: "12px piratesFont",
     showLabel: true,
@@ -61,7 +63,8 @@ const storageDefaults = {
     baseLayer: "Compile Map (dynamic)",
     defaultOverlay: "All cities (all time periods)",
     latlngOverlay: true,
-    usePiratesFont: true
+    usePiratesFont: true,
+    animatedReefs: true
 };
 
 let storage = localStorage.getItem("storage");
@@ -204,7 +207,8 @@ const panelOverlays = [
         id: "group-settings",
         layers: [
             { name: "Pirates Font", layer: L.layerGroup(), active: storage.usePiratesFont, icon: '<span class="panel-icon">🔤</span>' },
-            { name: "Lat/Long lines", layer: latlngLayerInstance, active: storage.latlngOverlay, icon: '<span class="panel-icon">🌐</span>' }
+            { name: "Lat/Long lines", layer: latlngLayerInstance, active: storage.latlngOverlay, icon: '<span class="panel-icon">🌐</span>' },
+            { name: "Animated reefs", layer: reefsOverlay, active: storage.animatedReefs, icon: '<span class="panel-icon">🌊</span>' }
         ]
     },
     {
@@ -285,6 +289,9 @@ function handleOverlayAdd(event) {
     if (event.name === "Lat/Long lines") {
         storage.latlngOverlay = true;
     }
+    if (event.name === "Animated reefs") {
+        storage.animatedReefs = true;
+    }
     localStorage.setItem("storage", JSON.stringify(storage));
 }
 
@@ -297,6 +304,9 @@ function handleOverlayRemove(event) {
     }
     if (event.name === "Lat/Long lines") {
         storage.latlngOverlay = false;
+    }
+    if (event.name === "Animated reefs") {
+        storage.animatedReefs = false;
     }
     localStorage.setItem("storage", JSON.stringify(storage));
 }
@@ -324,19 +334,24 @@ map.on('baselayerchange', function (event) {
                     if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
                 }
                 if (map.hasLayer(latlngLayerInstance)) map.removeLayer(latlngLayerInstance);
+                if (map.hasLayer(reefsOverlay)) map.removeLayer(reefsOverlay);
             } else {
                 if (storage.latlngOverlay && !map.hasLayer(latlngLayerInstance)) map.addLayer(latlngLayerInstance);
                 
-                // If switching to Dynamic, ensure the default overlay is shown
+                // If switching to Dynamic, ensure the default overlay and reefs are shown
                 if (isDynamic) {
                     if (storage.defaultOverlay && !map.hasLayer(mutuallyExclusiveOverlays[storage.defaultOverlay])) {
                         map.addLayer(mutuallyExclusiveOverlays[storage.defaultOverlay]);
                     }
+                    if (storage.animatedReefs && !map.hasLayer(reefsOverlay)) {
+                        map.addLayer(reefsOverlay);
+                    }
                 } else {
-                    // If switching to Static, remove any active era overlays
+                    // If switching to Static, remove any active era overlays and reefs
                     for (let o in mutuallyExclusiveOverlays) {
                         if (map.hasLayer(mutuallyExclusiveOverlays[o])) map.removeLayer(mutuallyExclusiveOverlays[o]);
                     }
+                    if (map.hasLayer(reefsOverlay)) map.removeLayer(reefsOverlay);
                 }
             }
 
@@ -373,9 +388,12 @@ const setupInitialState = () => {
     else if (storage.baseLayer === "Compiled Map (Full, static)") document.body.classList.add('base-static');
     else {
         document.body.classList.add('base-dynamic');
-        // If initial load is dynamic, add the default era overlay
+        // If initial load is dynamic, add the default era overlay and reefs
         if (storage.defaultOverlay) {
             mutuallyExclusiveOverlays[storage.defaultOverlay].addTo(map);
+        }
+        if (storage.animatedReefs) {
+            reefsOverlay.addTo(map);
         }
     }
 
