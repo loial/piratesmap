@@ -489,6 +489,7 @@ const icons = {
     family: L.icon({ iconUrl: 'images/family-icon.png', iconSize: [42, 50], iconAnchor: [21, 25], popupAnchor: [0, -25] }),
     missionFrom: L.icon({ iconUrl: 'images/missionfrom-icon.png', iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -24] }),
     missionTo: L.icon({ iconUrl: 'images/missionto-icon.png', iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -24] }),
+    informant: L.icon({ iconUrl: 'images/informant-icon.png', iconSize: [48, 48], iconAnchor: [24, 48], popupAnchor: [0, -48] }),
     fleet: L.icon({ iconUrl: 'images/fleet-icon.png', iconSize: [63, 40], iconAnchor: [30, 38], popupAnchor: [0, -38] }),
     train: L.icon({ iconUrl: 'images/train-icon.png', iconSize: [32, 68], iconAnchor: [16, 65], popupAnchor: [0, -50] })
 };
@@ -577,6 +578,7 @@ const markerGroup = L.geoJSON(null, {
         if (feature.properties.type === "treasure" || feature.properties.type === "inca") options.icon = icons.treasure;
         else if (feature.properties.type === "family") options.icon = icons.family;
         else if (feature.properties.type === "evil") options.icon = icons.enemy;
+        else if (feature.properties.type === "informant") options.icon = icons.informant;
         else if (feature.properties.type === "fleet") options.icon = icons.fleet;
         else if (feature.properties.type === "train") options.icon = icons.train;
         else if (feature.properties.type === "missionsource") options.icon = icons.missionFrom;
