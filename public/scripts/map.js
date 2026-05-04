@@ -437,6 +437,23 @@ searchControl.on('search:locationfound', (e) => {
 
 map.addControl(searchControl);
 
+// Performance: Disable animated reefs during movement/zoom
+map.on('move zoom', () => {
+    if (map.hasLayer(reefsOverlay)) {
+        isInternalSwitch = true;
+        map.removeLayer(reefsOverlay);
+        isInternalSwitch = false;
+    }
+});
+
+map.on('moveend zoomend', () => {
+    if (storage.animatedReefs && !map.hasLayer(reefsOverlay) && storage.baseLayer === "Compile Map (dynamic)") {
+        isInternalSwitch = true;
+        map.addLayer(reefsOverlay);
+        isInternalSwitch = false;
+    }
+});
+
 /* MARKER SYSTEM */
 
 L.Layer.include({
