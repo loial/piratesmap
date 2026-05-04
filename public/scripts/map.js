@@ -494,7 +494,7 @@ const icons = {
     train: L.icon({ iconUrl: 'images/train-icon.png', iconSize: [32, 68], iconAnchor: [16, 65], popupAnchor: [0, -50] })
 };
 
-function onEachMarkerFeature(feature, layer) {
+function getMarkerPopupContent(feature) {
     let title = feature.properties.type.charAt(0).toUpperCase() + feature.properties.type.slice(1);
     if (feature.properties.type === "family") title = `Long lost ${feature.properties.description}`;
     
@@ -510,11 +510,15 @@ function onEachMarkerFeature(feature, layer) {
         popupContent += `<p><a class="relocatemarker">Relocate to current city</a></p>`;
     }
 
-    if (feature.properties.type === "missionsource") popupContent += `<p><a onClick="map.flyTo(markerGroup.getLayers().find(l=>l.getProps().type=='missiontarget').getLatLng())">Show target</a></p>`;
-    if (feature.properties.type === "missiontarget") popupContent += `<p><a onClick="map.flyTo(markerGroup.getLayers().find(l=>l.getProps().type=='missionsource').getLatLng())">Show start</a></p>`;
+    if (feature.properties.type === "missionsource") popupContent += `<p><a onClick="map.flyTo(markerGroup.getLayers().find(l=>l.getProps().type=='missiontarget').getLatLng(), 5)">Show target</a></p>`;
+    if (feature.properties.type === "missiontarget") popupContent += `<p><a onClick="map.flyTo(markerGroup.getLayers().find(l=>l.getProps().type=='missionsource').getLatLng(), 5)">Show start</a></p>`;
     
     popupContent += `<p><a class="deletemarker">Delete this marker</a></p>`;
-    layer.bindPopup(popupContent);
+    return popupContent;
+}
+
+function onEachMarkerFeature(feature, layer) {
+    layer.bindPopup(getMarkerPopupContent(feature));
 }
 
 // Spreads markers bound to the same city in an orbit to prevent overlap
@@ -651,8 +655,15 @@ markerGroup.on("popupopen", (e) => {
                 return;
             }
             source.setProps({ city: lastClickedCity.properties.name });
+            
+            // Refresh popup content to reflect new city
+            source.setPopupContent(getMarkerPopupContent(source.feature));
+            
             showToast(`Relocated to ${lastClickedCity.properties.name}`);
             recalculateOrbits();
+            
+            // Close popup after relocation to finalize the state change visually
+            source.closePopup();
         } else {
             showToast("Click a city first to relocate!");
         }
