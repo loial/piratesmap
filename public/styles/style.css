@@ -205,6 +205,7 @@ body.base-static .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-
 
 .marker-edit-container {
     display: flex;
+    flex-wrap: wrap;
     gap: 5px;
     margin-top: 5px;
 }
@@ -212,6 +213,15 @@ body.base-static .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-
 .marker-edit-input {
     flex-grow: 1;
     padding: 2px 5px;
+    font-size: 12px;
+}
+
+.informant-fields {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px;
     font-size: 12px;
 }
 

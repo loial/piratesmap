@@ -494,9 +494,19 @@ const icons = {
     train: L.icon({ iconUrl: 'images/train-icon.png', iconSize: [32, 68], iconAnchor: [16, 65], popupAnchor: [0, -50] })
 };
 
+function getMarkerDisplayName(props) {
+    if (props.description) return props.description;
+    if (props.type === "informant") {
+        return props.isWife ? "Wife" : `Informant Lvl ${props.level || 1}`;
+    }
+    return props.type.charAt(0).toUpperCase() + props.type.slice(1);
+}
+
 function getMarkerPopupContent(feature) {
     const type = feature.properties.type;
     const desc = feature.properties.description;
+    const level = feature.properties.level;
+    const isWife = feature.properties.isWife;
     let title = type.charAt(0).toUpperCase() + type.slice(1);
 
     if (type === "treasure") title = "Pirate treasure";
@@ -505,8 +515,11 @@ function getMarkerPopupContent(feature) {
     else if (type === "train") title = "Silver train";
     else if (type === "family") title = desc ? `Long lost ${desc}` : "Long lost family member";
     else if (type === "evil") title = desc ? `The evil ${desc}` : "Evildoer";
+    else if (type === "informant") {
+        title = isWife ? "Wife" : `Informant - level ${level || 1}`;
+    }
     
-    let popupContent = `<b class="marker-title-clickable" title="Click to edit description">${title}</b>`;
+    let popupContent = `<b class="marker-title-clickable" title="Click to edit">${title}</b>`;
     // If description is already part of the title (family/evil), don't show it again in the body
     if (desc && !["family", "evil"].includes(type)) popupContent += `<p>${desc}</p>`;
     
@@ -601,10 +614,34 @@ const markerGroup = L.geoJSON(null, {
     }
 }).addTo(map);
 
+function updateMarkerInPanel(marker) {
+    const wasActive = map.hasLayer(marker); // Capture state BEFORE removal
+    isInternalSwitch = true;
+    try {
+        panelControl.removeLayer(marker);
+        const props = marker.getProps();
+        const name = getMarkerDisplayName(props);
+        panelControl.addOverlay({
+            name: `<span class="marker-link-text">${name}</span>`,
+            layer: marker,
+            group: "Markers",
+            active: wasActive, // Use captured state
+            icon: `<span class="panel-icon no-checkbox">${props.city ? '🏙️' : '📍'}</span>`
+        });
+
+        // Explicitly restore to map if it was active but the control stripped it
+        if (wasActive && !map.hasLayer(marker)) {
+            marker.addTo(map);
+        }
+    } finally {
+        isInternalSwitch = false;
+    }
+}
+
 // Sync markerGroup with Panel
 markerGroup.on("layeradd", (e) => {
     const props = e.layer.getProps();
-    const name = props.description || props.type;
+    const name = getMarkerDisplayName(props);
     panelControl.addOverlay({
         // Wrap the name in a class to identify it for custom click behavior
         name: `<span class="marker-link-text">${name}</span>`,
@@ -650,6 +687,14 @@ if (storedMarkers) {
     setTimeout(recalculateOrbits, 100); // Ensure city data is loaded
 }
 
+function getExistingWife() {
+    let wife = null;
+    markerGroup.eachLayer(l => {
+        if (l.getProps().type === "informant" && l.getProps().isWife) wife = l;
+    });
+    return wife;
+}
+
 markerGroup.on("popupopen", (e) => {
     const source = e.popup._source;
     const container = e.popup._container;
@@ -660,46 +705,62 @@ markerGroup.on("popupopen", (e) => {
     const titleEl = container.querySelector(".marker-title-clickable");
     if (titleEl) {
         titleEl.onclick = () => {
-            const currentDesc = source.feature.properties.description || "";
-            titleEl.innerHTML = `
+            const props = source.getProps();
+            const currentDesc = props.description || "";
+            const currentLevel = props.level || 1;
+            const currentWife = props.isWife || false;
+            
+            const otherWife = getExistingWife();
+            const wifeDisabled = (otherWife && otherWife !== source) ? 'disabled' : '';
+            const wifeTitle = wifeDisabled ? 'title="Demote existing wife first"' : '';
+            
+            let editContent = `
                 <div class="marker-edit-container">
                     <input type="text" class="marker-edit-input" value="${currentDesc}" placeholder="Description...">
+            `;
+            
+            if (props.type === "informant") {
+                editContent += `
+                    <div class="informant-fields">
+                        <label>Lvl: <select class="marker-edit-level">
+                            <option value="1" ${currentLevel == 1 ? 'selected' : ''}>1</option>
+                            <option value="2" ${currentLevel == 2 ? 'selected' : ''}>2</option>
+                            <option value="3" ${currentLevel == 3 ? 'selected' : ''}>3</option>
+                            <option value="4" ${currentLevel == 4 ? 'selected' : ''}>4</option>
+                        </select></label>
+                        <label ${wifeTitle}>Wife: <input type="checkbox" class="marker-edit-wife" ${currentWife ? 'checked' : ''} ${wifeDisabled}></label>
+                    </div>
+                `;
+            }
+            
+            editContent += `
                     <button class="marker-edit-save">ok</button>
                 </div>
             `;
+            
+            titleEl.innerHTML = editContent;
+            
             const input = titleEl.querySelector(".marker-edit-input");
+            const levelSelect = titleEl.querySelector(".marker-edit-level");
+            const wifeCheck = titleEl.querySelector(".marker-edit-wife");
             const saveBtn = titleEl.querySelector(".marker-edit-save");
             
             input.focus();
             input.onclick = (ev) => ev.stopPropagation(); // Prevent closing popup
+            if (levelSelect) levelSelect.onclick = (ev) => ev.stopPropagation();
+            if (wifeCheck) wifeCheck.onclick = (ev) => ev.stopPropagation();
             
             const save = () => {
-                const wasActive = map.hasLayer(source); // Capture state BEFORE removal
-                source.setProps({ description: input.value });
+                const isWife = wifeCheck ? wifeCheck.checked : false;
+                
+                source.setProps({ 
+                    description: input.value,
+                    level: levelSelect ? parseInt(levelSelect.value) : undefined,
+                    isWife: isWife
+                });
+                
                 source.setPopupContent(getMarkerPopupContent(source.feature));
-                
-                isInternalSwitch = true;
-                try {
-                    // Update panel title
-                    panelControl.removeLayer(source);
-                    const props = source.getProps();
-                    const name = props.description || props.type;
-                    panelControl.addOverlay({
-                        name: `<span class="marker-link-text">${name}</span>`,
-                        layer: source,
-                        group: "Markers",
-                        active: wasActive, // Use captured state
-                        icon: `<span class="panel-icon no-checkbox">${props.city ? '🏙️' : '📍'}</span>`
-                    });
-
-                    // Explicitly restore to map if it was active but the control stripped it
-                    if (wasActive && !map.hasLayer(source)) {
-                        source.addTo(map);
-                    }
-                } finally {
-                    isInternalSwitch = false;
-                }
-                
+                updateMarkerInPanel(source);
                 localStorage.setItem("markers", JSON.stringify(markerGroup.toGeoJSON()));
             };
 
@@ -750,7 +811,7 @@ let addMarkerControl = null;
 function startAddMarkerMode() {
     if (!addMarkerControl) {
         addMarkerControl = L.control.dialog({
-            size: [300, 180],
+            size: [300, 220],
             minSize: [250, 150],
             maxSize: [400, 300],
             anchor: [100, 100],
@@ -767,12 +828,29 @@ function startAddMarkerMode() {
                     ${["treasure", "inca", "evil", "family", "fleet", "train", "missionsource", "missiontarget", "informant"]
                         .map(t => `<option value="${t}">${t}</option>`).join('')}
                 </select>
+                
+                <div id="informantAddFields" class="informant-fields hidden">
+                    <label>Lvl: <select id="markerLevel">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                    </select></label>
+                    <label>Wife: <input type="checkbox" id="markerWife"></label>
+                </div>
+
                 <input id="markerDesc" type="text" placeholder="Description..." style="width:100%; margin-top:10px; padding: 5px;">
                 <div style="color:red; font-size:11px; margin-top:10px; font-weight: bold;">Click on a CITY or any map location</div>
             </form>
         `;
         addMarkerControl.setContent(content);
         
+        const typeSelect = content.querySelector("#markerType");
+        const infoFields = content.querySelector("#informantAddFields");
+        typeSelect.onchange = () => {
+            infoFields.classList.toggle("hidden", typeSelect.value !== "informant");
+        };
+
         // Leaflet.Dialog fires events on the map object, and the dialog instance is the event data
         map.on('dialog:closed', (e) => {
             if (e === addMarkerControl) cleanupAddMarkerMode();
@@ -781,6 +859,15 @@ function startAddMarkerMode() {
 
     isAddingMarker = true;
     addMarkerControl.open();
+    
+    // Disable wife option if one already exists
+    const wifeCheck = document.getElementById("markerWife");
+    if (wifeCheck) {
+        const wife = getExistingWife();
+        wifeCheck.disabled = !!wife;
+        wifeCheck.parentElement.title = wife ? "Demote existing wife first" : "";
+    }
+
     map.on("click", onMapClickForMarker);
     map.getPane("overlayPane").classList.add("cursor-add-shortcut");
 }
@@ -792,8 +879,15 @@ function onMapClickForMarker(e) {
 function addMarkerToTarget(latlng, cityFeature) {
     const type = document.getElementById("markerType").value;
     const desc = document.getElementById("markerDesc").value;
+    const level = document.getElementById("markerLevel").value;
+    const isWife = document.getElementById("markerWife").checked;
     
-    let properties = { type: type, description: desc };
+    let properties = { 
+        type: type, 
+        description: desc,
+        level: type === "informant" ? parseInt(level) : undefined,
+        isWife: type === "informant" ? isWife : undefined
+    };
     let geometry = { type: "Point", coordinates: [latlng.lng, latlng.lat] };
     
     // ONLY bind to city if the type is NOT coordinate-only
@@ -815,6 +909,8 @@ function addMarkerToTarget(latlng, cityFeature) {
     // Explicit cleanup
     const descInput = document.getElementById("markerDesc");
     if (descInput) descInput.value = "";
+    const wifeCheck = document.getElementById("markerWife");
+    if (wifeCheck) wifeCheck.checked = false;
     
     cleanupAddMarkerMode();
     if (addMarkerControl) addMarkerControl.close();
