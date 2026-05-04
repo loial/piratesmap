@@ -192,7 +192,32 @@ body.base-static .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-
 }
 
 .deletemarker,
+.relocatemarker,
+.marker-title-clickable,
 .leaflet-popup-content a {
+    cursor: pointer;
+}
+
+.marker-title-clickable:hover {
+    text-decoration: underline;
+    color: #8b0000;
+}
+
+.marker-edit-container {
+    display: flex;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.marker-edit-input {
+    flex-grow: 1;
+    padding: 2px 5px;
+    font-size: 12px;
+}
+
+.marker-edit-save {
+    padding: 2px 8px;
+    font-size: 11px;
     cursor: pointer;
 }
 

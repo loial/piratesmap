@@ -495,11 +495,20 @@ const icons = {
 };
 
 function getMarkerPopupContent(feature) {
-    let title = feature.properties.type.charAt(0).toUpperCase() + feature.properties.type.slice(1);
-    if (feature.properties.type === "family") title = `Long lost ${feature.properties.description}`;
+    const type = feature.properties.type;
+    const desc = feature.properties.description;
+    let title = type.charAt(0).toUpperCase() + type.slice(1);
+
+    if (type === "treasure") title = "Pirate treasure";
+    else if (type === "inca") title = "Lost Inca treasure";
+    else if (type === "fleet") title = "Treasure Fleet";
+    else if (type === "train") title = "Silver train";
+    else if (type === "family") title = desc ? `Long lost ${desc}` : "Long lost family member";
+    else if (type === "evil") title = desc ? `The evil ${desc}` : "Evildoer";
     
-    let popupContent = `<b>${title}</b>`;
-    if (feature.properties.description && feature.properties.type !== "family") popupContent += `<p>${feature.properties.description}</p>`;
+    let popupContent = `<b class="marker-title-clickable" title="Click to edit description">${title}</b>`;
+    // If description is already part of the title (family/evil), don't show it again in the body
+    if (desc && !["family", "evil"].includes(type)) popupContent += `<p>${desc}</p>`;
     
     if (feature.properties.city) {
         popupContent += `<p>City: ${feature.properties.city}</p>`;
@@ -643,10 +652,70 @@ if (storedMarkers) {
 
 markerGroup.on("popupopen", (e) => {
     const source = e.popup._source;
-    const delBtn = e.popup._container.querySelector(".deletemarker");
+    const container = e.popup._container;
+    
+    const delBtn = container.querySelector(".deletemarker");
     if (delBtn) delBtn.onclick = () => markerGroup.removeLayer(source);
     
-    const relBtn = e.popup._container.querySelector(".relocatemarker");
+    const titleEl = container.querySelector(".marker-title-clickable");
+    if (titleEl) {
+        titleEl.onclick = () => {
+            const currentDesc = source.feature.properties.description || "";
+            titleEl.innerHTML = `
+                <div class="marker-edit-container">
+                    <input type="text" class="marker-edit-input" value="${currentDesc}" placeholder="Description...">
+                    <button class="marker-edit-save">ok</button>
+                </div>
+            `;
+            const input = titleEl.querySelector(".marker-edit-input");
+            const saveBtn = titleEl.querySelector(".marker-edit-save");
+            
+            input.focus();
+            input.onclick = (ev) => ev.stopPropagation(); // Prevent closing popup
+            
+            const save = () => {
+                const wasActive = map.hasLayer(source); // Capture state BEFORE removal
+                source.setProps({ description: input.value });
+                source.setPopupContent(getMarkerPopupContent(source.feature));
+                
+                isInternalSwitch = true;
+                try {
+                    // Update panel title
+                    panelControl.removeLayer(source);
+                    const props = source.getProps();
+                    const name = props.description || props.type;
+                    panelControl.addOverlay({
+                        name: `<span class="marker-link-text">${name}</span>`,
+                        layer: source,
+                        group: "Markers",
+                        active: wasActive, // Use captured state
+                        icon: `<span class="panel-icon no-checkbox">${props.city ? '🏙️' : '📍'}</span>`
+                    });
+
+                    // Explicitly restore to map if it was active but the control stripped it
+                    if (wasActive && !map.hasLayer(source)) {
+                        source.addTo(map);
+                    }
+                } finally {
+                    isInternalSwitch = false;
+                }
+                
+                localStorage.setItem("markers", JSON.stringify(markerGroup.toGeoJSON()));
+            };
+
+            saveBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                save();
+            };
+            
+            input.onkeyup = (ev) => {
+                if (ev.key === "Enter") save();
+                if (ev.key === "Escape") source.setPopupContent(getMarkerPopupContent(source.feature));
+            };
+        };
+    }
+    
+    const relBtn = container.querySelector(".relocatemarker");
     if (relBtn) {
         if (lastClickedCity) {
             relBtn.innerText = `Relocate to ${lastClickedCity.properties.name}`;
