@@ -605,13 +605,16 @@ markerGroup.on("layeradd", (e) => {
 
 // Event delegation for custom marker interactions in the panel
 document.addEventListener('click', (event) => {
-    if (event.target.classList.contains('marker-link-text')) {
+    const item = event.target.closest('.leaflet-panel-layers-item');
+    if (item && item.querySelector('.marker-link-text')) {
+        // If it's the checkbox, let the plugin handle it
+        if (event.target.tagName === 'INPUT') return;
+
+        // For anything else in the marker item (label, icon, text), fly to it and prevent toggling
         event.preventDefault();
         event.stopPropagation();
         
-        // Find the sibling input to get the Leaflet layer ID (stamp)
-        const item = event.target.closest('.leaflet-panel-layers-item');
-        const input = item?.querySelector('input');
+        const input = item.querySelector('input');
         if (input && input.value) {
             const marker = markerGroup.getLayer(input.value);
             if (marker) {
