@@ -647,27 +647,32 @@ markerGroup.on("popupopen", (e) => {
     if (delBtn) delBtn.onclick = () => markerGroup.removeLayer(source);
     
     const relBtn = e.popup._container.querySelector(".relocatemarker");
-    if (relBtn) relBtn.onclick = () => {
+    if (relBtn) {
         if (lastClickedCity) {
-            // Strict type check during relocation
-            if (["treasure", "inca", "family"].includes(source.getProps().type)) {
-                showToast("Treasure/Family cannot be bound to cities!");
-                return;
-            }
-            source.setProps({ city: lastClickedCity.properties.name });
-            
-            // Refresh popup content to reflect new city
-            source.setPopupContent(getMarkerPopupContent(source.feature));
-            
-            showToast(`Relocated to ${lastClickedCity.properties.name}`);
-            recalculateOrbits();
-            
-            // Close popup after relocation to finalize the state change visually
-            source.closePopup();
-        } else {
-            showToast("Click a city first to relocate!");
+            relBtn.innerText = `Relocate to ${lastClickedCity.properties.name}`;
         }
-    };
+        relBtn.onclick = () => {
+            if (lastClickedCity) {
+                // Strict type check during relocation
+                if (["treasure", "inca", "family"].includes(source.getProps().type)) {
+                    showToast("Treasure/Family cannot be bound to cities!");
+                    return;
+                }
+                source.setProps({ city: lastClickedCity.properties.name });
+                
+                // Refresh popup content to reflect new city
+                source.setPopupContent(getMarkerPopupContent(source.feature));
+                
+                showToast(`Relocated to ${lastClickedCity.properties.name}`);
+                recalculateOrbits();
+                
+                // Close popup after relocation to finalize the state change visually
+                source.closePopup();
+            } else {
+                showToast("Click a city first to relocate!");
+            }
+        };
+    }
 });
 
 // Marker Add Dialog
