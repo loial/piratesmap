@@ -744,6 +744,9 @@ function addMarkerToTarget(latlng, cityFeature) {
     });
     
     // Explicit cleanup
+    const descInput = document.getElementById("markerDesc");
+    if (descInput) descInput.value = "";
+    
     cleanupAddMarkerMode();
     if (addMarkerControl) addMarkerControl.close();
 
