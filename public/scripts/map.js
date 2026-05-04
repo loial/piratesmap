@@ -207,7 +207,7 @@ const panelBaseLayers = [
     }
 ];
 
-const panelOverlays = [
+const rightOverlays = [
     {
         group: "Eras",
         id: "group-eras",
@@ -231,9 +231,18 @@ const panelOverlays = [
         group: "Tools",
         id: "group-tools",
         layers: [
-            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">➕</span>' },
             { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">🗺️</span>' },
             { name: "Store All Markers", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">💾</span>' }
+        ]
+    }
+];
+
+const leftOverlays = [
+    {
+        group: "Marker Actions",
+        id: "group-marker-actions",
+        layers: [
+            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">➕</span>' }
         ]
     },
     {
@@ -246,8 +255,8 @@ const panelOverlays = [
 // Monkey-patch L.Control.PanelLayers to preserve group IDs
 const originalAddLayer = L.Control.PanelLayers.prototype._addLayer;
 L.Control.PanelLayers.prototype._addLayer = function (layerDef, overlay, groupName, collapsed) {
-    // Find the group definition to get its ID
-    const groups = overlay ? panelOverlays : panelBaseLayers;
+    // Find the group definition to get its ID from either overlay set or base layers
+    const groups = overlay ? [...rightOverlays, ...leftOverlays] : panelBaseLayers;
     const groupDef = groups.find(g => g.group === groupName);
     
     // Store group ID on the layer object for later retrieval during _update
@@ -256,7 +265,7 @@ L.Control.PanelLayers.prototype._addLayer = function (layerDef, overlay, groupNa
     return originalAddLayer.apply(this, arguments);
 };
 
-const panelControl = L.control.panelLayers(panelBaseLayers, panelOverlays, {
+const panelControl = L.control.panelLayers(panelBaseLayers, rightOverlays, {
     compact: true,
     collapsed: true,
     collapsibleGroups: true,
@@ -453,6 +462,14 @@ searchControl.on('search:locationfound', (e) => {
 
 map.addControl(searchControl);
 
+const panelMarkersControl = L.control.panelLayers(null, leftOverlays, {
+    compact: true,
+    collapsed: true,
+    collapsibleGroups: true,
+    position: 'topleft',
+    sortLayers: true
+}).addTo(map);
+
 // Performance: Disable animated reefs during movement/zoom
 map.on('move zoom', () => {
     if (map.hasLayer(reefsOverlay)) {
@@ -618,10 +635,10 @@ function updateMarkerInPanel(marker) {
     const wasActive = map.hasLayer(marker); // Capture state BEFORE removal
     isInternalSwitch = true;
     try {
-        panelControl.removeLayer(marker);
+        panelMarkersControl.removeLayer(marker);
         const props = marker.getProps();
         const name = getMarkerDisplayName(props);
-        panelControl.addOverlay({
+        panelMarkersControl.addOverlay({
             name: `<span class="marker-link-text">${name}</span>`,
             layer: marker,
             group: "Markers",
@@ -642,7 +659,7 @@ function updateMarkerInPanel(marker) {
 markerGroup.on("layeradd", (e) => {
     const props = e.layer.getProps();
     const name = getMarkerDisplayName(props);
-    panelControl.addOverlay({
+    panelMarkersControl.addOverlay({
         // Wrap the name in a class to identify it for custom click behavior
         name: `<span class="marker-link-text">${name}</span>`,
         layer: e.layer,
@@ -677,7 +694,7 @@ document.addEventListener('click', (event) => {
 }, true); // Use capture to intercept before the plugin toggles the layer
 
 markerGroup.on("layerremove", (e) => {
-    panelControl.removeLayer(e.layer);
+    panelMarkersControl.removeLayer(e.layer);
     setTimeout(recalculateOrbits, 0);
 });
 

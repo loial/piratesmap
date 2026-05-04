@@ -158,25 +158,31 @@ body {
     opacity: 0.4;
 }
 
-/* Conditional Eras Group visibility - Hide the FIRST group in the overlays section */
-body.base-official .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1),
-body.base-static .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) {
+/* Conditional Eras Group visibility in RIGHT panel - Hide the FIRST group in the overlays section */
+body.base-official .leaflet-right .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1),
+body.base-static .leaflet-right .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) {
     display: none !important;
 }
 
-/* Specific hide for Tools checkboxes while keeping them functional as buttons/labels */
-.leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(3) .leaflet-panel-layers-selector,
-.leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(3) input {
+/* Specific hide for Tools checkboxes in Right Panel */
+.leaflet-right .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(3) .leaflet-panel-layers-selector,
+.leaflet-right .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(3) input {
     display: none !important;
 }
 
-/* Hide the non-selected overlays when panel is collapsed */
-.leaflet-panel-layers:not(.expanded) .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) .leaflet-panel-layers-item:has(input:not(:checked)) {
+/* Specific hide for Marker Actions checkboxes in Left Panel */
+.leaflet-left .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) .leaflet-panel-layers-selector,
+.leaflet-left .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) input {
+    display: none !important;
+}
+
+/* Hide the non-selected overlays when RIGHT panel is collapsed */
+.leaflet-right .leaflet-panel-layers:not(.expanded) .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) .leaflet-panel-layers-item:has(input:not(:checked)) {
     display: none;
 }
 
-/* Show the label of the selected overlay, even when collapsed (well, the first identifying word/number part at least) */
-.leaflet-panel-layers:not(.expanded) .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) .leaflet-panel-layers-item:has(input:checked) .leaflet-panel-layers-title>span { display: inline; }
+/* Show the label of the selected overlay in RIGHT panel, even when collapsed */
+.leaflet-right .leaflet-panel-layers:not(.expanded) .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-child(1) .leaflet-panel-layers-item:has(input:checked) .leaflet-panel-layers-title>span { display: inline; }
 
 /* Make the collapsed panel wide enough to show the first word of overlay name (i.e. "All","1660" etc) */
 .leaflet-panel-layers {
