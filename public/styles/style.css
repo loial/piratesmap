@@ -7,8 +7,9 @@
 input[type='text'].search-input,
 #dlgAnalyze,
 #btnAnalyze,
-.result-import-button{
-    font-family: piratesFont; /* use font */
+.result-import-button,
+body {
+    font-family: piratesFont, Verdana, sans-serif; /* use font with fallback */
 }
 
 /* Fallback font override */
@@ -275,7 +276,7 @@ body.base-static .leaflet-panel-layers-overlays .leaflet-panel-layers-group:nth-
     color: #f1e5ac; /* Parchment-like yellow */
     padding: 12px 24px;
     border-radius: 20px;
-    font-family: piratesFont, Verdana, sans-serif;
+    font-family: inherit;
     font-size: 14px;
     z-index: 9999;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
