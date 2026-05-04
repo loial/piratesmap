@@ -226,14 +226,6 @@ const rightOverlays = [
             { name: "Lat/Long lines", layer: latlngLayerInstance, active: storage.latlngOverlay, icon: '<span class="panel-icon">🌐</span>' },
             { name: "Animated reefs", layer: reefsOverlay, active: storage.animatedReefs, icon: '<span class="panel-icon">🌊</span>' }
         ]
-    },
-    {
-        group: "Tools",
-        id: "group-tools",
-        layers: [
-            { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">🗺️</span>' },
-            { name: "Store All Markers", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">💾</span>' }
-        ]
     }
 ];
 
@@ -242,7 +234,9 @@ const leftOverlays = [
         group: "Marker Actions",
         id: "group-marker-actions",
         layers: [
-            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">➕</span>' }
+            { name: "Add Marker", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">➕</span>' },
+            { name: "Analyze Map Piece", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">🗺️</span>' },
+            { name: "Store All Markers", layer: L.layerGroup(), icon: '<span class="panel-icon no-checkbox">💾</span>' }
         ]
     },
     {
